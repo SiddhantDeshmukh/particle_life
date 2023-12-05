@@ -1,5 +1,5 @@
 use rand::{rngs::ThreadRng, Rng};
-use raylib::prelude::*;
+use raylib::{prelude::*, ffi::GetMouseWheelMove};
 use rayon::prelude::*;
 
 enum BoundaryCondition {
@@ -13,36 +13,35 @@ struct Particle {
     i_color: usize,  // index of Color in colors
     position: Vector2,
     velocity: Vector2,
-    mass: f32
 }
 
-struct SpawnBounds {
-    // Controls particle spawning
-    x_min: f32,
-    x_max: f32,
-    y_min: f32,
-    y_max: f32,
-    vx_min: f32,
-    vx_max: f32,
-    vy_min: f32,
-    vy_max: f32
-}
+// struct SpawnBounds {
+//     // Controls particle spawning
+//     x_min: f32,
+//     x_max: f32,
+//     y_min: f32,
+//     y_max: f32,
+//     vx_min: f32,
+//     vx_max: f32,
+//     vy_min: f32,
+//     vy_max: f32
+// }
 
-impl SpawnBounds {
-    fn full_vzero(params: Params) -> Self {
-        // Spawn bounds is the entire window, velocities are zero
-        Self {
-            x_min: 0.,
-            x_max: params.width as f32,
-            y_min: 0.,
-            y_max: params.height as f32,
-            vx_min: 0.,
-            vx_max: 0.,
-            vy_min: 0.,
-            vy_max: 0.,
-        }
-    }
-}
+// impl SpawnBounds {
+//     fn full_vzero(params: Params) -> Self {
+//         // Spawn bounds is the entire window, velocities are zero
+//         Self {
+//             x_min: 0.,
+//             x_max: params.width as f32,
+//             y_min: 0.,
+//             y_max: params.height as f32,
+//             vx_min: 0.,
+//             vx_max: 0.,
+//             vy_min: 0.,
+//             vy_max: 0.,
+//         }
+//     }
+// }
 
 struct Params {
     // width and height are for raylib
@@ -98,6 +97,14 @@ fn range_scale(v: f32, old_low: f32, old_hi: f32, new_low: f32, new_hi: f32) -> 
     return new_low + v * (new_hi - new_low) / (old_hi - old_low);
 }
 
+fn clamp(val: f32, min: f32, max: f32) -> f32 {
+    match val {
+        val if val < min => min,
+        val if val > max => max,
+        _ => val
+    }
+}
+
 fn rvec2_range(rng: &mut ThreadRng, x_min: f32, x_max: f32, y_min: f32, y_max: f32) -> Vector2 {
     rvec2(range_scale(rng.gen::<f32>(), 0., 1., x_min, x_max),
           range_scale(rng.gen::<f32>(), 0., 1., y_min, y_max))
@@ -110,6 +117,7 @@ fn compute_force(r: f32, a: f32, beta: f32) -> f32 {
         _ => 0.0,
     }
 }
+
 
 fn generate_particles(num: usize, rng: &mut ThreadRng,
                      colors: Vec<Color>, x_min: f32, x_max: f32,
@@ -124,7 +132,6 @@ fn generate_particles(num: usize, rng: &mut ThreadRng,
                 i_color,
                 position: rvec2_range(rng, x_min, x_max, y_min, y_max),
                 velocity: rvec2_range(rng, vx_min, vx_max, vy_min, vy_max),
-                mass: rng.gen_range(1.0..8.0),
             };
 
             p
@@ -169,7 +176,7 @@ fn update_particles(particles: &Vec<Particle>, params: &Params,
                         force_matrix[p1.i_color][p2.i_color],
                         0.3,
                     );
-                    total_force += ((p2.position - p1.position) / distance) * f * p2.mass;
+                    total_force += ((p2.position - p1.position) / distance) * f;
                 }
             }
             let mut new_p = *p1;
@@ -286,33 +293,51 @@ fn main() {
         .title("Particle Life")
         .build();
 
-    // Drawing loop
+    const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
+    const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
+    let mut mouse_pickup_radius: f32 = 100.;
+
+    // Simulatiuon and drawing loop
     let mut current_time: f32 = 0.;
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
         // Update particles
         particles = update_particles(&particles, &params, &force_matrix);
-        // // Mouse events
-        // FIX!
-        // if d.is_mouse_button_down(MouseButton::MOUSE_LEFT_BUTTON) {
-        //     // Pick up particles
-        //     let mut mouse_position = d.get_mouse_position();
-        //     mouse_position.x /= params.width as f32;
-        //     mouse_position.y /= params.height as f32;
-        //     particles = particles
-        //         .iter_mut()
-        //         .map(|p| {
-        //             p.velocity -= (p.position - mouse_position) * 0.5;
-        //             *p
-        //         })
-        //         .collect();
-        // }
-        // Draw
-        for p in &particles {
-            d.draw_circle(p.position.x as i32, p.position.y as i32, p.mass, p.color);
+
+        // Render pick-up circle around mouse
+        let mouse_position = d.get_mouse_position();
+        let mouse_wheel = unsafe { GetMouseWheelMove() };
+        // Mouse events
+        // Mouse wheel to change pickup size
+        if mouse_wheel != 0. {
+            mouse_pickup_radius = clamp(mouse_pickup_radius + (mouse_wheel * 25.),
+            MIN_MOUSE_PICKUP_RADIUS, MAX_MOUSE_PICKUP_RADIUS)
         }
+        // Click to grab
+        if d.is_mouse_button_down(MouseButton::MOUSE_LEFT_BUTTON) {
+            // Pick up particles near mouse
+            particles = particles
+                .iter_mut()
+                .map(|p| {
+                    if mouse_position.distance_to(p.position) <= mouse_pickup_radius {
+                        p.velocity -= (p.position - mouse_position) * 0.5;
+                    }
+                    *p
+                })
+                .collect();
+        }
+        // Draw
+        // Particles
+        for p in &particles {
+            d.draw_circle(p.position.x as i32, p.position.y as i32, 4., p.color);
+        }
+        // FPS
         d.draw_fps(4, 4);
+        // Pickup radius
+        d.draw_circle_lines(mouse_position.x as i32, mouse_position.y as i32,
+            mouse_pickup_radius, Color::GRAY);
+        // Timer
         let text = format!("t = {:.2}", current_time);
         d.draw_text(&text, 4, 24, 18, Color::GRAY);
         current_time += params.time_step;
@@ -323,14 +348,13 @@ fn main() {
 
 /*
  TODO:
+ - User controlled params
+ - Sim domain vs viewing domain
  - create submodules
- - gray outline on circles
- - Underlying grid
  - Space partitioning
  - Vectorize input conditions and boundaries
  - Change to seedable RNG to save a good state matrix
  - Add collisions
- - Color changes
+ - Add spontaneous splitting
  - Continuous color force
- - Background color potential
 */
