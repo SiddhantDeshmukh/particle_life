@@ -230,28 +230,49 @@ pub fn update_particles(particles: &Vec<Particle>, params: &Params) -> Vec<Parti
                     continue;
                 };
                 let distance: f32;
+                let mut p2_pos = p2.position;
                 if let BoundaryCondition::Periodic = params.boundary_condition {
-                    // Check component-wise if distances exceed the half-domain and adjust if necessary
-                    let mut pos_change = p2.position - p1.position;
-                    pos_change.x = pos_change.x.abs();
-                    pos_change.y = pos_change.y.abs();
-                    if pos_change.x > 0.5 * params.x_len() {
-                        pos_change.x = pos_change.x - params.x_len();
+                    // Find closest periodic "version" of the target point, and calculate distance
+                    let mut best_x = 0.;
+                    let mut shortest_dist = params.x_len();
+                    for possible_x in [
+                        p2_pos.x - params.x_len(),
+                        p2_pos.x,
+                        p2_pos.x + params.x_len(),
+                    ] {
+                        let abs_dist = (possible_x - p1.position.x).abs();
+                        if abs_dist < shortest_dist {
+                            best_x = possible_x;
+                            shortest_dist = abs_dist;
+                        }
                     }
-                    if pos_change.y > 0.5 * params.y_len() {
-                        pos_change.y = pos_change.y - params.y_len();
+
+                    let mut best_y = 0.;
+                    let mut shortest_dist = params.y_len();
+                    for possible_y in [
+                        p2_pos.y - params.y_len(),
+                        p2_pos.y,
+                        p2_pos.y + params.y_len(),
+                    ] {
+                        let abs_dist = (possible_y - p1.position.y).abs();
+                        if abs_dist < shortest_dist {
+                            best_y = possible_y;
+                            shortest_dist = abs_dist;
+                        }
                     }
-                    distance = pos_change.length();
-                } else {
-                    distance = p1.position.distance_to(p2.position);
+                    p2_pos = Vector2 {
+                        x: best_x,
+                        y: best_y,
+                    };
                 };
+                distance = p1.position.distance_to(p2_pos);
                 if (distance > 0.) & (distance < params.max_radius) {
                     let f = compute_force(
                         distance / params.max_radius,
                         color_attraction(p1.color_vec, p2.color_vec, &params.rgb_matrix),
                         0.3,
                     );
-                    total_force += ((p2.position - p1.position) / distance) * f;
+                    total_force += ((p2_pos - p1.position) / distance) * f;
                 }
             }
             let mut new_p = *p1;
