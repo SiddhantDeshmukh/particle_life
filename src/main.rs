@@ -4,9 +4,29 @@ use rand::rngs::ThreadRng;
 use raylib::{prelude::*, ffi::GetMouseWheelMove};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
-enum SimulationMode {
-    FixedColor,  // use a set number of colors and a force matrix
-    ContinuousColor  // use random colors in full range and RGB matrix
+
+fn init(rng: &mut ThreadRng,
+        window_width: i32, window_height: i32,
+        simulation_width: i32, simulation_height: i32) -> Params {
+    // Initialises the required Params for initial simulation based on
+    // simulation mode
+    let friction_half_life: f32 = 0.5;
+    let time_step: f32 = 0.05;
+    let max_radius: f32 = 200.;
+    let boundary_condition: BoundaryCondition = BoundaryCondition::Periodic;
+    let rgb_matrix = generate_rgb_matrix(rng);
+
+    return Params {
+        window_width,
+        window_height,
+        simulation_width,
+        simulation_height,
+        friction_half_life,
+        time_step,
+        max_radius,
+        boundary_condition,
+        rgb_matrix
+    }
 }
 
 fn main() {
@@ -19,22 +39,15 @@ fn main() {
     let simulation_width: i32 = WINDOW_WIDTH;
     let simulation_height: i32 = WINDOW_HEIGHT;
     // Simulation parameters
-    let params = Params {
-        width: simulation_width,
-        height: simulation_height,
-        friction_half_life: 0.5,
-        time_step: 0.1,
-        max_radius: 200.,
-        boundary_condition: BoundaryCondition::Periodic
-        // boundary_condition: BoundaryCondition::Reflecting
-    };
-
-    // let window_padding = 100;
 
     const NUM_PARTICLES: usize = 1000;  // TODO: make variable
     const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
     const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
     // const SEED: u64 = 420;
+    // Init RNG and initial params
+    let mut rng: ThreadRng = rand::thread_rng();
+    let params = init(&mut rng, WINDOW_WIDTH, WINDOW_HEIGHT,
+        simulation_width, simulation_height);
 
     // Bounds for initial particle spawning
     let x_min: f32 = params.x_min();
@@ -46,24 +59,11 @@ fn main() {
     let vy_min: f32 = 0.;
     let vy_max: f32 = 0.;
 
-    // Init RNG, colors, forces and particles
-    let mut rng: ThreadRng = rand::thread_rng();
-    let colors: Vec<Color> = vec![
-        Color::RED,
-        Color::BLUE,
-        Color::GREEN,
-        Color::ORANGE,
-        Color::YELLOW,
-        Color::PURPLE,
-        Color::BROWN,
-        Color::PINK,
-    ];
-    let force_matrix = generate_force_matrix(colors.len(), &mut rng);
-    let mut particles = generate_particles_cm(NUM_PARTICLES, &mut rng, colors, x_min, x_max, y_min, y_max, vx_min, vx_max, vy_min, vy_max);
+    let mut particles = generate_particles(NUM_PARTICLES, &mut rng, x_min, x_max, y_min, y_max, vx_min, vx_max, vy_min, vy_max);
 
     // Init raylib
     let (mut rl, thread) = raylib::init()
-        .size(WINDOW_WIDTH, WINDOW_HEIGHT)
+        .size(params.window_width, params.window_height)
         .title("Particle Life")
         .build();
 
@@ -75,7 +75,7 @@ fn main() {
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
         // Update particles
-        particles = update_particles_cm(&particles, &params, &force_matrix);
+        particles = update_particles(&particles, &params);
 
         // Render pick-up circle around mouse
         let mouse_position = d.get_mouse_position();
@@ -124,6 +124,7 @@ fn main() {
     - friction, dt
     - change forces
  - add/remove particles with brush
+ - make RGB matrix a [f32; 9] 
  - Sim domain vs viewing domain
  - create submodules
  - Space partitioning

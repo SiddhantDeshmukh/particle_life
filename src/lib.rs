@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use rand::{rngs::ThreadRng, Rng};
 use raylib::prelude::*;
 use rayon::prelude::*;
@@ -7,7 +9,7 @@ pub enum BoundaryCondition {
     Reflecting
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct Particle {
     pub color: Color,
     pub i_color: usize,  // index of Color in colors
@@ -45,12 +47,16 @@ pub struct Particle {
 // }
 
 pub struct Params {
-    pub width: i32,
-    pub height: i32,
+    pub window_width: i32,
+    pub window_height: i32,
+    pub simulation_width: i32,
+    pub simulation_height: i32,
     pub friction_half_life: f32,
     pub time_step: f32,
     pub max_radius: f32,
     pub boundary_condition: BoundaryCondition,
+    // pub rgb_matrix: [f32; 9],
+    pub rgb_matrix: Vec<Vec<f32>>,
 }
 
 impl Params {
@@ -59,7 +65,7 @@ impl Params {
     }
 
     pub fn x_max(&self) -> f32 {
-        self.width as f32
+        self.simulation_width as f32
     }
 
     pub fn y_min(&self) -> f32 {
@@ -67,7 +73,7 @@ impl Params {
     }
 
     pub fn y_max(&self) -> f32 {
-        self.height as f32
+        self.simulation_height as f32
     }
 
     pub fn x_len(&self) -> f32 {
@@ -142,10 +148,14 @@ pub fn color_attraction(cv1: [f32; 3], cv2: [f32; 3], rgb_matrix: &Vec<Vec<f32>>
     let mut force: f32 = 0.;
     for i in 0..3 {
         for j in 0..3 {
-            force += (cv1[i] - cv2[j]) * rgb_matrix[i][j];
+            // sin of L1 norm
+            let a: f32 = range_scale(cv1[i] - cv2[j], -255., 255., 0., 2. * PI).sin();
+            // Random number in range [-1., 1.]
+            let b = rgb_matrix[i][j];
+            force += a + b;
         }
     }
-    return force;
+    return force.cos();
 }
 
 pub fn color_to_vec(c: Color) -> [f32; 3] {
@@ -154,8 +164,8 @@ pub fn color_to_vec(c: Color) -> [f32; 3] {
 }
 
 pub fn vec_to_color(v: [f32; 3]) -> Color {
-    // Turn an RGB vec into a Color, alpha always 1
-    Color{r: v[0] as u8, g: v[1] as u8, b: v[2] as u8, a: 1}
+    // Turn an RGB vec into a Color, alpha always max
+    Color{r: v[0] as u8, g: v[1] as u8, b: v[2] as u8, a: 255}
 }
 
 pub fn random_color(rng: &mut ThreadRng) -> Color {
@@ -163,7 +173,7 @@ pub fn random_color(rng: &mut ThreadRng) -> Color {
 }
 
 // Particle generation
-pub fn generate_particlesm(num: usize, rng: &mut ThreadRng,
+pub fn generate_particles(num: usize, rng: &mut ThreadRng,
                      x_min: f32, x_max: f32,
                      y_min: f32, y_max: f32, vx_min: f32, vx_max: f32,
                      vy_min: f32, vy_max: f32) -> Vec<Particle> {
@@ -178,7 +188,6 @@ pub fn generate_particlesm(num: usize, rng: &mut ThreadRng,
                 position: rvec2_range(rng, x_min, x_max, y_min, y_max),
                 velocity: rvec2_range(rng, vx_min, vx_max, vy_min, vy_max),
             };
-
             p
         })
         .collect();
@@ -200,7 +209,6 @@ pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
                 position: rvec2_range(rng, x_min, x_max, y_min, y_max),
                 velocity: rvec2_range(rng, vx_min, vx_max, vy_min, vy_max),
             };
-
             p
         })
         .collect();
@@ -208,8 +216,7 @@ pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
 }
 
 // Particle updates
-pub fn update_particles(particles: &Vec<Particle>, params: &Params,
-        rgb_matrix: &Vec<Vec<f32>>) -> Vec<Particle> {
+pub fn update_particles(particles: &Vec<Particle>, params: &Params) -> Vec<Particle> {
     // Update using continuous color force
     let friction: f32 = 0.5_f32.powf(params.time_step / params.friction_half_life);
     // Create new particles list and update velocities
@@ -235,14 +242,13 @@ pub fn update_particles(particles: &Vec<Particle>, params: &Params,
                         pos_change.y = pos_change.y - params.y_len();
                     }
                     distance = pos_change.length();
-                    // distance = p1.position.distance_to(p2.position);
                 } else {
                     distance = p1.position.distance_to(p2.position);
                 };
                 if (distance > 0.) & (distance < params.max_radius) {
                     let f = compute_force(
                         distance / params.max_radius,
-                        color_attraction(p1.color_vec, p2.color_vec, &rgb_matrix),
+                        color_attraction(p1.color_vec, p2.color_vec, &params.rgb_matrix),
                         0.3,
                     );
                     total_force += ((p2.position - p1.position) / distance) * f;
