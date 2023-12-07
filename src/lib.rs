@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use rand::{rngs::ThreadRng, Rng};
 use raylib::prelude::*;
 use rayon::prelude::*;
@@ -16,6 +14,7 @@ pub struct Particle {
     pub color_vec: [f32; 3],  // Color saved as RGB vec for continuous force
     pub position: Vector2,
     pub velocity: Vector2,
+
 }
 
 // struct SpawnBounds {
@@ -55,8 +54,8 @@ pub struct Params {
     pub time_step: f32,
     pub max_radius: f32,
     pub boundary_condition: BoundaryCondition,
-    // pub rgb_matrix: [f32; 9],
-    pub rgb_matrix: Vec<Vec<f32>>,
+    pub p1_rand_arr: [f32; 3],
+    pub p2_rand_arr: [f32; 3],
     pub force_scale: f32,
 }
 
@@ -108,6 +107,16 @@ pub fn rvec2_range(rng: &mut ThreadRng, x_min: f32, x_max: f32, y_min: f32, y_ma
 }
 
 // Force matrix stuff
+pub fn random_val(rng: &mut ThreadRng) -> f32 {
+    // Convenience method
+    (rng.gen::<f32>() - 0.5) * 2.
+}
+
+pub fn generate_prgb_matrix(rng: &mut ThreadRng) -> [f32; 3] {
+    // 3 random values in range [-1., 1.] for continuous color force
+    [random_val(rng), random_val(rng), random_val(rng)]
+}
+
 pub fn generate_force_matrix(len: usize, rng: &mut ThreadRng) -> Vec<Vec<f32>> {
     // Generate square matrix init with random values in [-1., 1.]
     let mut force_matrix = vec![vec![0 as f32; len]; len];
@@ -143,25 +152,18 @@ pub fn random_color_vec(rng: &mut ThreadRng) -> [f32; 3] {
     color_vec
 }
 
-pub fn color_attraction(cv1: [f32; 3], cv2: [f32; 3], rgb_matrix: &Vec<Vec<f32>>) -> f32 {
+pub fn color_attraction(cv1: [f32; 3], cv2: [f32; 3],
+    p1_rand_arr: [f32; 3], p2_rand_arr: [f32; 3]) -> f32 {
     // Continuous force calculation between two colors, designed to be
-    // asymmetric, but similar colors exert smaller forces
+    // asymmetric, but similar colors exert similar forces
     let mut force: f32 = 0.;
     for i in 0..3 {
-        // Check just the diagonal components
-        // let a: f32 = range_scale(cv1[i] - cv2[i], -255., 255., 0., 2.*PI).sin();
-        // let b: f32 = rgb_matrix[i][i];
-        // force += (a + b) / 6.;
-        for j in 0..3 {
-            // sin of L1 norm
-            let a: f32 = range_scale(cv1[i] - cv2[j], -255., 255., 0., 2. * PI).sin();
-            // Random number in range [-1., 1.]
-            let b = rgb_matrix[i][j];
-            force += a + b;
-        }
+        force += (p1_rand_arr[i] * cv1[i] - p2_rand_arr[i] * cv2[i]) / 255.;
     }
     return force;
 }
+
+
 
 pub fn color_to_vec(c: Color) -> [f32; 3] {
     // Turn a Color into a (RGB) vec, ignoring the alppha component
@@ -243,8 +245,9 @@ pub fn update_particles(particles: &Vec<Particle>, params: &Params) -> Vec<Parti
                 if (distance > 0.) & (distance < params.max_radius) {
                     let f = compute_force(
                         distance / params.max_radius,
-                        color_attraction(p1.color_vec, p2.color_vec, &params.rgb_matrix),
+                        color_attraction(p1.color_vec, p2.color_vec, params.p1_rand_arr, params.p2_rand_arr),
                         0.3,
+                        // 0.5,
                     );
                     total_force += ((p2_pos - p1.position) / distance) * f;
                 }

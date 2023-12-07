@@ -12,11 +12,12 @@ fn init(rng: &mut ThreadRng,
     // simulation mode
     let friction_half_life: f32 = 0.5;
     let time_step: f32 = 0.05;
-    let max_radius: f32 = 200.;
+    let max_radius: f32 = 300.;
     let boundary_condition: BoundaryCondition = BoundaryCondition::Periodic;
     // let boundary_condition: BoundaryCondition = BoundaryCondition::Reflecting;
-    let rgb_matrix = generate_rgb_matrix(rng);
     let force_scale: f32 = 1.;
+    let p1_rand_arr: [f32; 3] = generate_prgb_matrix(rng);
+    let p2_rand_arr: [f32; 3] = generate_prgb_matrix(rng);
 
     return Params {
         window_width,
@@ -27,7 +28,8 @@ fn init(rng: &mut ThreadRng,
         time_step,
         max_radius,
         boundary_condition,
-        rgb_matrix,
+        p1_rand_arr,
+        p2_rand_arr,
         force_scale
     }
 }
@@ -136,4 +138,6 @@ fn main() {
  - Add collisions
  - Add spontaneous splitting
  - Continuous color force
+    - Create 2 3-arrays (p1, p2) representing RGB
+      Then compare
 */
