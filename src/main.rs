@@ -26,7 +26,7 @@ fn main() {
 
     // let window_padding = 100;
 
-    const NUM_PARTICLES: usize = 2000;  // TODO: make variable
+    const NUM_PARTICLES: usize = 1000;  // TODO: make variable
     const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
     const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
     // const SEED: u64 = 420;
