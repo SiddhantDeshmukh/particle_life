@@ -4,11 +4,6 @@ use rand::rngs::ThreadRng;
 use raylib::{prelude::*, ffi::GetMouseWheelMove};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
-enum SimulationMode {
-    FixedColor,  // use a set number of colors and a force matrix
-    ContinuousColor  // use random colors in full range and RGB matrix
-}
-
 fn main() {
     // For rendering the window
     const WINDOW_WIDTH: i32 = 1600;
@@ -31,7 +26,7 @@ fn main() {
 
     // let window_padding = 100;
 
-    const NUM_PARTICLES: usize = 1000;  // TODO: make variable
+    const NUM_PARTICLES: usize = 2000;  // TODO: make variable
     const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
     const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
     // const SEED: u64 = 420;
