@@ -248,6 +248,7 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
         .par_iter()
         .map(|p| {
             let mut new_p = *p;
+            // Potential new position
             new_p.position += new_p.velocity * params.time_step;
             // Boundaries
             match params.boundary_condition {
