@@ -38,13 +38,11 @@ fn main() {
     // For rendering the window
     const WINDOW_WIDTH: i32 = 1600;
     const WINDOW_HEIGHT: i32 = 800;
-
     // Physics domain (for now the same size, need to decouple world from
     // drawing)
     let simulation_width: i32 = WINDOW_WIDTH;
     let simulation_height: i32 = WINDOW_HEIGHT;
     // Simulation parameters
-
     const NUM_PARTICLES: usize = 1000;  // TODO: make variable
     const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
     const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
