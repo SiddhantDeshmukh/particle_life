@@ -14,7 +14,9 @@ fn init(rng: &mut ThreadRng,
     let time_step: f32 = 0.05;
     let max_radius: f32 = 200.;
     let boundary_condition: BoundaryCondition = BoundaryCondition::Periodic;
+    // let boundary_condition: BoundaryCondition = BoundaryCondition::Reflecting;
     let rgb_matrix = generate_rgb_matrix(rng);
+    let force_scale: f32 = 1.;
 
     return Params {
         window_width,
@@ -25,7 +27,8 @@ fn init(rng: &mut ThreadRng,
         time_step,
         max_radius,
         boundary_condition,
-        rgb_matrix
+        rgb_matrix,
+        force_scale
     }
 }
 
