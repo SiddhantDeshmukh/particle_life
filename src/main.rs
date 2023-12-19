@@ -19,6 +19,7 @@ fn main() {
         height: simulation_height,
         friction_half_life: 0.5,
         time_step: 0.1,
+        // time_step: 0.5,  // for debugging
         max_radius: 200.,
         boundary_condition: BoundaryCondition::Periodic
         // boundary_condition: BoundaryCondition::Reflecting
@@ -26,7 +27,7 @@ fn main() {
 
     // let window_padding = 100;
 
-    const NUM_PARTICLES: usize = 1000;  // TODO: make variable
+    const NUM_PARTICLES: usize = 2000;  // TODO: make variable
     const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
     const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
     // const SEED: u64 = 420;
@@ -97,7 +98,7 @@ fn main() {
         // Draw
         // Particles
         for p in &particles {
-            d.draw_circle(p.position.x as i32, p.position.y as i32, 4., p.color);
+            d.draw_circle(p.position.x as i32, p.position.y as i32, 3., p.color);
         }
         // FPS
         d.draw_fps(4, 4);

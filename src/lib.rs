@@ -205,24 +205,31 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
                 if let BoundaryCondition::Periodic = params.boundary_condition {
                     // Find closest periodic image of the target point
                     let shortest_x = p2_pos.x - p1.position.x;
+                    // Grid is (5, 10)
+                    // p1 = (1, 9)
+                    // p2 = (2, 3)
+                    // shortest_x = 1 (correct)
+                    // shortest_y = -6 (abs > 5, so change)
+                    // shortest y is 4
+                    // p2_pos = (1, 4)
                     if shortest_x.abs() > 0.5 * params.x_len() {
                         if shortest_x > 0. {
-                            // Nearest image is to the right
-                            p2_pos.x = shortest_x - params.x_len();
-                        } else {
                             // Nearest image is to the left
-                            p2_pos.x = shortest_x + params.x_len();
+                            p2_pos.x -= params.x_len();
+                        } else {
+                            // Nearest image is to the right
+                            p2_pos.x += params.x_len();
                         }
                     }
 
                     let shortest_y = p2_pos.y - p1.position.y;
                     if shortest_y.abs() > 0.5 * params.y_len() {
                         if shortest_y > 0. {
-                            // Nearest image is above
-                            p2_pos.y = shortest_y - params.y_len();
-                        } else {
                             // Nearest image is below
-                            p2_pos.y = shortest_y + params.y_len();
+                            p2_pos.y -= params.y_len();
+                        } else {
+                            // Nearest image is above
+                            p2_pos.y += params.y_len();
                         }
                     }
                 };
