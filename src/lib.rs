@@ -158,7 +158,7 @@ pub fn color_attraction(cv1: [f32; 3], cv2: [f32; 3],
     // asymmetric, but similar colors exert similar forces
     let mut force: f32 = 0.;
     for i in 0..3 {
-        force += (p1_rand_arr[i] * cv1[i] - p2_rand_arr[i] * cv2[i]) / 255.;
+        force += (p1_rand_arr[i] * cv1[i] - p2_rand_arr[i] * cv2[i]) / 25.5;
     }
     return force;
 }

@@ -10,9 +10,9 @@ fn init(rng: &mut ThreadRng,
         simulation_width: i32, simulation_height: i32) -> Params {
     // Initialises the required Params for initial simulation based on
     // simulation mode
-    let friction_half_life: f32 = 0.5;
+    let friction_half_life: f32 = 0.4;
     let time_step: f32 = 0.1;
-    let max_radius: f32 = 200.;
+    let max_radius: f32 = 100.;
     let boundary_condition: BoundaryCondition = BoundaryCondition::Periodic;
     // let boundary_condition: BoundaryCondition = BoundaryCondition::Reflecting;
     let force_scale: f32 = 1.;
@@ -105,7 +105,7 @@ fn main() {
         // Draw
         // Particles
         for p in &particles {
-            d.draw_circle(p.position.x as i32, p.position.y as i32, 4., p.color);
+            d.draw_circle(p.position.x as i32, p.position.y as i32, 3., p.color);
         }
         // FPS
         d.draw_fps(4, 4);
