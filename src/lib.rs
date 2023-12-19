@@ -223,10 +223,10 @@ pub fn update_particles(particles: &Vec<Particle>, params: &Params) -> Vec<Parti
                     if shortest_x.abs() > 0.5 * params.x_len() {
                         if shortest_x > 0. {
                             // Nearest image is to the right
-                            p2_pos.x = shortest_x - params.x_len();
+                            p2_pos.x -= params.x_len();
                         } else {
                             // Nearest image is to the left
-                            p2_pos.x = shortest_x + params.x_len();
+                            p2_pos.x += params.x_len();
                         }
                     }
 
@@ -234,10 +234,10 @@ pub fn update_particles(particles: &Vec<Particle>, params: &Params) -> Vec<Parti
                     if shortest_y.abs() > 0.5 * params.y_len() {
                         if shortest_y > 0. {
                             // Nearest image is above
-                            p2_pos.y = shortest_y - params.y_len();
+                            p2_pos.y -= params.y_len();
                         } else {
                             // Nearest image is below
-                            p2_pos.y = shortest_y + params.y_len();
+                            p2_pos.y += params.y_len();
                         }
                     }
                 };

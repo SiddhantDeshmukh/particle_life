@@ -11,8 +11,8 @@ fn init(rng: &mut ThreadRng,
     // Initialises the required Params for initial simulation based on
     // simulation mode
     let friction_half_life: f32 = 0.5;
-    let time_step: f32 = 0.05;
-    let max_radius: f32 = 300.;
+    let time_step: f32 = 0.1;
+    let max_radius: f32 = 200.;
     let boundary_condition: BoundaryCondition = BoundaryCondition::Periodic;
     // let boundary_condition: BoundaryCondition = BoundaryCondition::Reflecting;
     let force_scale: f32 = 1.;
@@ -43,7 +43,7 @@ fn main() {
     let simulation_width: i32 = WINDOW_WIDTH;
     let simulation_height: i32 = WINDOW_HEIGHT;
     // Simulation parameters
-    const NUM_PARTICLES: usize = 1000;  // TODO: make variable
+    const NUM_PARTICLES: usize = 2000;  // TODO: make variable
     const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
     const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
     // const SEED: u64 = 420;
