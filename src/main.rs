@@ -6,13 +6,12 @@ use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 
 fn init(rng: &mut ThreadRng,
-        window_width: i32, window_height: i32,
-        simulation_width: i32, simulation_height: i32) -> Params {
+        window_width: i32, window_height: i32) -> Params {
     // Initialises the required Params for initial simulation based on
     // simulation mode
-    let friction_half_life: f32 = 0.4;
-    let time_step: f32 = 0.1;
-    let max_radius: f32 = 100.;
+    let friction_half_life: f32 = 0.04;
+    let time_step: f32 = 0.02;
+    let max_radius: f32 = 0.1; // between 0 and 1
     let boundary_condition: BoundaryCondition = BoundaryCondition::Periodic;
     // let boundary_condition: BoundaryCondition = BoundaryCondition::Reflecting;
     let force_scale: f32 = 1.;
@@ -22,8 +21,6 @@ fn init(rng: &mut ThreadRng,
     return Params {
         window_width,
         window_height,
-        simulation_width,
-        simulation_height,
         friction_half_life,
         time_step,
         max_radius,
@@ -34,25 +31,32 @@ fn init(rng: &mut ThreadRng,
     }
 }
 
+pub fn reset(rng: &mut ThreadRng, window_width: i32, window_height: i32) -> (Params, Vec<Particle>) {
+    // Reinit, redraw
+    let params = init(rng, window_width, window_height);
+    let particles = generate_particles(2000, rng, 0., 1., 0., 1.,
+        0., 0., 0., 0.);
+    println!("{:?}", params);
+    (params, particles)
+}
+
 fn main() {
     // For rendering the window
     const WINDOW_WIDTH: i32 = 1600;
     const WINDOW_HEIGHT: i32 = 800;
-    // Physics domain (for now the same size, need to decouple world from
-    // drawing)
-    let simulation_width: i32 = WINDOW_WIDTH;
-    let simulation_height: i32 = WINDOW_HEIGHT;
+    // Physics domain is always in the range [0., 1.] in all axes, convert
+    // coords
     // Simulation parameters
     const NUM_PARTICLES: usize = 2000;  // TODO: make variable
-    const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
-    const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
+    const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;  // px
+    const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;  // px
     // const SEED: u64 = 420;
     // Init RNG and initial params
     let mut rng: ThreadRng = rand::thread_rng();
-    let params = init(&mut rng, WINDOW_WIDTH, WINDOW_HEIGHT,
-        simulation_width, simulation_height);
+    let mut params = init(&mut rng, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     // Bounds for initial particle spawning
+    // TODO: convert to and from px coords
     let x_min: f32 = params.x_min();
     let x_max: f32 = params.x_max();
     let y_min: f32 = params.y_min();
@@ -82,6 +86,7 @@ fn main() {
 
         // Render pick-up circle around mouse
         let mouse_position = d.get_mouse_position();
+        let world_mouse_position = win_to_world(mouse_position, WINDOW_WIDTH, WINDOW_HEIGHT);
         let mouse_wheel = unsafe { GetMouseWheelMove() };
         // Mouse events
         // Mouse wheel to change pickup size
@@ -94,9 +99,9 @@ fn main() {
             // Pick up particles near mouse
             particles = particles
                 .par_iter_mut()
-                .map(|p| {
-                    if mouse_position.distance_to(p.position) <= mouse_pickup_radius {
-                        p.velocity -= (p.position - mouse_position) * 0.5;
+                .map(|p: &mut Particle| {
+                    if mouse_position.distance_to(world_to_win(p.position, WINDOW_WIDTH, WINDOW_HEIGHT)) <= mouse_pickup_radius {
+                        p.velocity -= (p.position - world_mouse_position).normalized() * 0.5;
                     }
                     *p
                 })
@@ -105,7 +110,10 @@ fn main() {
         // Draw
         // Particles
         for p in &particles {
-            d.draw_circle(p.position.x as i32, p.position.y as i32, 3., p.color);
+            d.draw_circle(p.win_pos_x(WINDOW_WIDTH),
+                        p.win_pos_y(WINDOW_HEIGHT),
+                        3.,
+                         p.color);
         }
         // FPS
         d.draw_fps(4, 4);
@@ -116,6 +124,11 @@ fn main() {
         let text = format!("t = {:.2}", current_time);
         d.draw_text(&text, 4, 24, 18, Color::GRAY);
         current_time += params.time_step;
+        // TODO: Add reset button
+        // if current_time >= 3. {
+        //     (params, particles) = reset(&mut rng, WINDOW_WIDTH, WINDOW_HEIGHT);
+        //     current_time = 0.;
+        // }
     }
 
 }
