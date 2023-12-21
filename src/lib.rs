@@ -2,18 +2,44 @@ use rand::{rngs::ThreadRng, Rng};
 use raylib::prelude::*;
 use rayon::prelude::*;
 
+
+pub struct Button {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub text: str,
+}
+
+
+#[derive(Debug)]
 pub enum BoundaryCondition {
     Periodic,
     Reflecting
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct Particle {
     pub color: Color,
     pub i_color: usize,  // index of Color in colors
     pub color_vec: [f32; 3],  // Color saved as RGB vec for continuous force
     pub position: Vector2,
     pub velocity: Vector2,
+}
+
+impl Particle {
+    // Scale positions to window size for drawing
+    fn scale_position(&self, value: f32, window_size: i32) -> i32 {
+        (value * window_size as f32) as i32
+    }
+
+    pub fn win_pos_x(&self, window_width: i32) -> i32 {
+        self.scale_position(self.position.x, window_width)
+    }
+
+    pub fn win_pos_y(&self, window_height: i32) -> i32 {
+        self.scale_position(self.position.y, window_height)
+    }
 }
 
 // struct SpawnBounds {
@@ -44,13 +70,18 @@ pub struct Particle {
 //     }
 // }
 
+
+#[derive(Debug)]
 pub struct Params {
-    pub width: i32,
-    pub height: i32,
-    pub friction_half_life: f32,
+    pub window_width: i32,
+    pub window_height: i32,
     pub time_step: f32,
+    pub friction_half_life: f32,
     pub max_radius: f32,
     pub boundary_condition: BoundaryCondition,
+    pub grid_prgb_arr: [f32; 3],  // 1-way force from grid cell to particle
+    pub force_scale: f32,
+
 }
 
 impl Params {
@@ -59,7 +90,7 @@ impl Params {
     }
 
     pub fn x_max(&self) -> f32 {
-        self.width as f32
+        1.  // default
     }
 
     pub fn y_min(&self) -> f32 {
@@ -67,7 +98,7 @@ impl Params {
     }
 
     pub fn y_max(&self) -> f32 {
-        self.height as f32
+        1.  // default
     }
 
     pub fn x_len(&self) -> f32 {
@@ -79,6 +110,15 @@ impl Params {
     }
 }
 
+// Coordinate transforms
+pub fn win_to_world(vec: Vector2, window_width: i32, window_height: i32) -> Vector2 {
+    // Convert from window coordinates to world coords (between 0 and 1)
+    Vector2{x: vec.x / window_width as f32, y: vec.y / window_height as f32}
+}
+
+pub fn world_to_win(vec: Vector2, window_width: i32, window_height: i32) -> Vector2 {
+    Vector2{x: vec.x * window_width as f32, y: vec.y * window_height as f32}
+}
 
 // Numerics
 pub fn range_scale(v: f32, old_low: f32, old_hi: f32, new_low: f32, new_hi: f32) -> f32 {
@@ -100,7 +140,18 @@ pub fn rvec2_range(rng: &mut ThreadRng, x_min: f32, x_max: f32, y_min: f32, y_ma
         range_scale(rng.gen::<f32>(), 0., 1., y_min, y_max))
 }
 
+pub fn random_val(rng: &mut ThreadRng) -> f32 {
+    // Convenience method
+    (rng.gen::<f32>() - 0.5) * 2.
+}
+
 // Force matrix stuff
+
+pub fn generate_prgb_matrix(rng: &mut ThreadRng) -> [f32; 3] {
+    // 3 random values in range [-1., 1.] for continuous color force
+    [random_val(rng), random_val(rng), random_val(rng)]
+}
+
 pub fn generate_force_matrix(len: usize, rng: &mut ThreadRng) -> Vec<Vec<f32>> {
     // Generate square matrix init with random values in [-1., 1.]
     let mut force_matrix = vec![vec![0 as f32; len]; len];
@@ -164,7 +215,7 @@ pub fn random_color(rng: &mut ThreadRng) -> Color {
 
 // Particle generation
 pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
-                     colors: Vec<Color>, x_min: f32, x_max: f32,
+                     colors: &Vec<Color>, x_min: f32, x_max: f32,
                      y_min: f32, y_max: f32, vx_min: f32, vx_max: f32,
                      vy_min: f32, vy_max: f32) -> Vec<Particle> {
     // Generate 'num' random particles from the given parameters
@@ -174,7 +225,7 @@ pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
             let p = Particle {
                 color: colors[i_color],
                 i_color,
-                color_vec: color_to_vec(colors[i_color]),  // not used here, TODO fix
+                color_vec: color_to_vec(colors[i_color]),  // used for grid forces
                 position: rvec2_range(rng, x_min, x_max, y_min, y_max),
                 velocity: rvec2_range(rng, vx_min, vx_max, vy_min, vy_max),
             };
@@ -204,16 +255,9 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
                 let mut p2_pos = p2.position;
                 if let BoundaryCondition::Periodic = params.boundary_condition {
                     // Find closest periodic image of the target point
-                    let shortest_x = p2_pos.x - p1.position.x;
-                    // Grid is (5, 10)
-                    // p1 = (1, 9)
-                    // p2 = (2, 3)
-                    // shortest_x = 1 (correct)
-                    // shortest_y = -6 (abs > 5, so change)
-                    // shortest y is 4
-                    // p2_pos = (1, 4)
-                    if shortest_x.abs() > 0.5 * params.x_len() {
-                        if shortest_x > 0. {
+                    let distance_x = p2_pos.x - p1.position.x;
+                    if distance_x.abs() > 0.5 * params.x_len() {
+                        if distance_x > 0. {
                             // Nearest image is to the left
                             p2_pos.x -= params.x_len();
                         } else {
@@ -222,9 +266,9 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
                         }
                     }
 
-                    let shortest_y = p2_pos.y - p1.position.y;
-                    if shortest_y.abs() > 0.5 * params.y_len() {
-                        if shortest_y > 0. {
+                    let distance_y = p2_pos.y - p1.position.y;
+                    if distance_y.abs() > 0.5 * params.y_len() {
+                        if distance_y > 0. {
                             // Nearest image is below
                             p2_pos.y -= params.y_len();
                         } else {
@@ -245,6 +289,7 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
             }
             let mut new_p = *p1;
             new_p.velocity *= friction;
+            total_force *= params.force_scale;
             new_p.velocity += total_force * params.time_step;
             new_p
         })
