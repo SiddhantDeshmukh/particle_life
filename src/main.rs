@@ -7,7 +7,6 @@ use raylib::{prelude::*, ffi::{GetMouseWheelMove, Rectangle}};
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 
 
-
 fn init(rng: &mut ThreadRng,
         window_width: i32, window_height: i32) -> Params {
     // Initialises the required Params for initial simulation based on
@@ -84,6 +83,10 @@ fn main() {
     const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
     const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
     // const SEED: u64 = 420;
+    // Init RNG and initial params
+    let mut rng: ThreadRng = rand::thread_rng();
+    let params = init(&mut rng, WINDOW_WIDTH, WINDOW_HEIGHT,
+        simulation_width, simulation_height);
 
     // Bounds for initial particle spawning
     let x_min: f32 = params.x_min();
@@ -113,7 +116,7 @@ fn main() {
 
     // Init raylib
     let (mut rl, thread) = raylib::init()
-        .size(WINDOW_WIDTH, WINDOW_HEIGHT)
+        .size(params.window_width, params.window_height)
         .title("Particle Life")
         .build();
 
@@ -205,6 +208,7 @@ fn main() {
     - friction, dt
     - change forces
  - add/remove particles with brush
+ - make RGB matrix a [f32; 9] 
  - Sim domain vs viewing domain
  - create submodules
  - Space partitioning

@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use rand::{rngs::ThreadRng, Rng};
 use raylib::prelude::*;
 use rayon::prelude::*;
@@ -81,7 +83,6 @@ pub struct Params {
     pub boundary_condition: BoundaryCondition,
     pub grid_prgb_arr: [f32; 3],  // 1-way force from grid cell to particle
     pub force_scale: f32,
-
 }
 
 impl Params {
@@ -193,10 +194,14 @@ pub fn color_attraction(cv1: [f32; 3], cv2: [f32; 3], rgb_matrix: &Vec<Vec<f32>>
     let mut force: f32 = 0.;
     for i in 0..3 {
         for j in 0..3 {
-            force += (cv1[i] - cv2[j]) * rgb_matrix[i][j];
+            // sin of L1 norm
+            let a: f32 = range_scale(cv1[i] - cv2[j], -255., 255., 0., 2. * PI).sin();
+            // Random number in range [-1., 1.]
+            let b = rgb_matrix[i][j];
+            force += a + b;
         }
     }
-    return force;
+    return force.cos();
 }
 
 pub fn color_to_vec(c: Color) -> [f32; 3] {
@@ -205,8 +210,8 @@ pub fn color_to_vec(c: Color) -> [f32; 3] {
 }
 
 pub fn vec_to_color(v: [f32; 3]) -> Color {
-    // Turn an RGB vec into a Color, alpha always 1
-    Color{r: v[0] as u8, g: v[1] as u8, b: v[2] as u8, a: 1}
+    // Turn an RGB vec into a Color, alpha always max
+    Color{r: v[0] as u8, g: v[1] as u8, b: v[2] as u8, a: 255}
 }
 
 pub fn random_color(rng: &mut ThreadRng) -> Color {
@@ -229,7 +234,6 @@ pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
                 position: rvec2_range(rng, x_min, x_max, y_min, y_max),
                 velocity: rvec2_range(rng, vx_min, vx_max, vy_min, vy_max),
             };
-
             p
         })
         .collect();
