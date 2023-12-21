@@ -4,6 +4,17 @@ use rand::{rngs::ThreadRng, Rng};
 use raylib::prelude::*;
 use rayon::prelude::*;
 
+
+pub struct Button {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub text: str,
+}
+
+
+#[derive(Debug)]
 pub enum BoundaryCondition {
     Periodic,
     Reflecting
@@ -16,6 +27,21 @@ pub struct Particle {
     pub color_vec: [f32; 3],  // Color saved as RGB vec for continuous force
     pub position: Vector2,
     pub velocity: Vector2,
+}
+
+impl Particle {
+    // Scale positions to window size for drawing
+    fn scale_position(&self, value: f32, window_size: i32) -> i32 {
+        (value * window_size as f32) as i32
+    }
+
+    pub fn win_pos_x(&self, window_width: i32) -> i32 {
+        self.scale_position(self.position.x, window_width)
+    }
+
+    pub fn win_pos_y(&self, window_height: i32) -> i32 {
+        self.scale_position(self.position.y, window_height)
+    }
 }
 
 // struct SpawnBounds {
@@ -46,17 +72,17 @@ pub struct Particle {
 //     }
 // }
 
+
+#[derive(Debug)]
 pub struct Params {
     pub window_width: i32,
     pub window_height: i32,
-    pub simulation_width: i32,
-    pub simulation_height: i32,
-    pub friction_half_life: f32,
     pub time_step: f32,
+    pub friction_half_life: f32,
     pub max_radius: f32,
     pub boundary_condition: BoundaryCondition,
-    // pub rgb_matrix: [f32; 9],
-    pub rgb_matrix: Vec<Vec<f32>>,
+    pub grid_prgb_arr: [f32; 3],  // 1-way force from grid cell to particle
+    pub force_scale: f32,
 }
 
 impl Params {
@@ -65,7 +91,7 @@ impl Params {
     }
 
     pub fn x_max(&self) -> f32 {
-        self.simulation_width as f32
+        1.  // default
     }
 
     pub fn y_min(&self) -> f32 {
@@ -73,7 +99,7 @@ impl Params {
     }
 
     pub fn y_max(&self) -> f32 {
-        self.simulation_height as f32
+        1.  // default
     }
 
     pub fn x_len(&self) -> f32 {
@@ -85,6 +111,15 @@ impl Params {
     }
 }
 
+// Coordinate transforms
+pub fn win_to_world(vec: Vector2, window_width: i32, window_height: i32) -> Vector2 {
+    // Convert from window coordinates to world coords (between 0 and 1)
+    Vector2{x: vec.x / window_width as f32, y: vec.y / window_height as f32}
+}
+
+pub fn world_to_win(vec: Vector2, window_width: i32, window_height: i32) -> Vector2 {
+    Vector2{x: vec.x * window_width as f32, y: vec.y * window_height as f32}
+}
 
 // Numerics
 pub fn range_scale(v: f32, old_low: f32, old_hi: f32, new_low: f32, new_hi: f32) -> f32 {
@@ -106,7 +141,18 @@ pub fn rvec2_range(rng: &mut ThreadRng, x_min: f32, x_max: f32, y_min: f32, y_ma
         range_scale(rng.gen::<f32>(), 0., 1., y_min, y_max))
 }
 
+pub fn random_val(rng: &mut ThreadRng) -> f32 {
+    // Convenience method
+    (rng.gen::<f32>() - 0.5) * 2.
+}
+
 // Force matrix stuff
+
+pub fn generate_prgb_matrix(rng: &mut ThreadRng) -> [f32; 3] {
+    // 3 random values in range [-1., 1.] for continuous color force
+    [random_val(rng), random_val(rng), random_val(rng)]
+}
+
 pub fn generate_force_matrix(len: usize, rng: &mut ThreadRng) -> Vec<Vec<f32>> {
     // Generate square matrix init with random values in [-1., 1.]
     let mut force_matrix = vec![vec![0 as f32; len]; len];
@@ -173,29 +219,8 @@ pub fn random_color(rng: &mut ThreadRng) -> Color {
 }
 
 // Particle generation
-pub fn generate_particles(num: usize, rng: &mut ThreadRng,
-                     x_min: f32, x_max: f32,
-                     y_min: f32, y_max: f32, vx_min: f32, vx_max: f32,
-                     vy_min: f32, vy_max: f32) -> Vec<Particle> {
-    // Generate 'num' random particles from the given parameters
-    let particles: Vec<Particle> = (0..num)
-        .map(|_|  {
-            let color: Color = random_color(rng);
-            let p = Particle {
-                color,
-                i_color: 0,  // TODO: change Particle
-                color_vec: color_to_vec(color),
-                position: rvec2_range(rng, x_min, x_max, y_min, y_max),
-                velocity: rvec2_range(rng, vx_min, vx_max, vy_min, vy_max),
-            };
-            p
-        })
-        .collect();
-    particles
-}
-
 pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
-                     colors: Vec<Color>, x_min: f32, x_max: f32,
+                     colors: &Vec<Color>, x_min: f32, x_max: f32,
                      y_min: f32, y_max: f32, vx_min: f32, vx_max: f32,
                      vy_min: f32, vy_max: f32) -> Vec<Particle> {
     // Generate 'num' random particles from the given parameters
@@ -205,7 +230,7 @@ pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
             let p = Particle {
                 color: colors[i_color],
                 i_color,
-                color_vec: color_to_vec(colors[i_color]),  // not used here, TODO fix
+                color_vec: color_to_vec(colors[i_color]),  // used for grid forces
                 position: rvec2_range(rng, x_min, x_max, y_min, y_max),
                 velocity: rvec2_range(rng, vx_min, vx_max, vy_min, vy_max),
             };
@@ -216,130 +241,6 @@ pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
 }
 
 // Particle updates
-pub fn update_particles(particles: &Vec<Particle>, params: &Params) -> Vec<Particle> {
-    // Update using continuous color force
-    let friction: f32 = 0.5_f32.powf(params.time_step / params.friction_half_life);
-    // Create new particles list and update velocities
-    let new_particles: Vec<Particle> = particles
-        .par_iter()
-        .map(|p1| {
-            let mut total_force = Vector2::zero();
-            for p2 in particles {
-                if p1 == p2 {
-                    // No self-attraction
-                    continue;
-                };
-                let distance: f32;
-                let mut p2_pos = p2.position;
-                if let BoundaryCondition::Periodic = params.boundary_condition {
-                    // Find closest periodic "version" of the target point, and calculate distance
-                    let mut best_x = 0.;
-                    let mut shortest_dist = params.x_len();
-                    for possible_x in [
-                        p2_pos.x - params.x_len(),
-                        p2_pos.x,
-                        p2_pos.x + params.x_len(),
-                    ] {
-                        let abs_dist = (possible_x - p1.position.x).abs();
-                        if abs_dist < shortest_dist {
-                            best_x = possible_x;
-                            shortest_dist = abs_dist;
-                        }
-                    }
-
-                    let mut best_y = 0.;
-                    let mut shortest_dist = params.y_len();
-                    for possible_y in [
-                        p2_pos.y - params.y_len(),
-                        p2_pos.y,
-                        p2_pos.y + params.y_len(),
-                    ] {
-                        let abs_dist = (possible_y - p1.position.y).abs();
-                        if abs_dist < shortest_dist {
-                            best_y = possible_y;
-                            shortest_dist = abs_dist;
-                        }
-                    }
-                    p2_pos = Vector2 {
-                        x: best_x,
-                        y: best_y,
-                    };
-                };
-                distance = p1.position.distance_to(p2_pos);
-                if (distance > 0.) & (distance < params.max_radius) {
-                    let f = compute_force(
-                        distance / params.max_radius,
-                        color_attraction(p1.color_vec, p2.color_vec, &params.rgb_matrix),
-                        0.3,
-                    );
-                    total_force += ((p2_pos - p1.position) / distance) * f;
-                }
-            }
-            let mut new_p = *p1;
-            new_p.velocity *= friction;
-            new_p.velocity += total_force * params.time_step;
-
-            // Boundaries
-            match params.boundary_condition {
-                BoundaryCondition::Periodic => {
-                    match new_p.position.x {
-                        x if x > params.x_max() => {
-                            new_p.position.x -= params.x_max();
-                        },
-                        x if x < params.x_min() => {
-                            new_p.position.x += params.x_max();
-                        },
-                        _ => {}
-                    };
-                    match new_p.position.y {
-                        y if y > params.y_max() => {
-                            new_p.position.y -= params.y_max();
-                        },
-                        y if y < params.y_min() => {
-                            new_p.position.y += params.y_max();
-                        },
-                        _ => {}
-                    }
-                },
-                BoundaryCondition::Reflecting => {
-                    match new_p.position.x {
-                        x if x > params.x_max() =>  {
-                            new_p.position.x = 2. * params.x_max() - new_p.position.x;
-                            new_p.velocity.x = -new_p.velocity.x;
-                        },
-                        x if x < params.x_min() => {
-                            new_p.position.x = 2. * params.x_min() - new_p.position.x;
-                            new_p.velocity.x = -new_p.velocity.x;
-                        },
-                        _ => {}
-                    };
-                    match new_p.position.y {
-                        y if y > params.y_max() => {
-                            new_p.position.y = 2. * params.y_max() - new_p.position.y;
-                            new_p.velocity.y = -new_p.velocity.y;
-                        },
-                        y if y < params.y_min() => {
-                            new_p.position.y = 2. * params.y_min() - new_p.position.y;
-                            new_p.velocity.y = -new_p.velocity.y;
-                        },
-                        _ => {}
-                    };
-               },
-            }
-            new_p
-        })
-        .collect();
-
-    // Update positions
-    new_particles
-        .par_iter()
-        .map(|p| {
-            let mut new_p = *p;
-            new_p.position += new_p.velocity * params.time_step;
-            new_p
-        })
-        .collect()
-}
 pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
                     force_matrix: &Vec<Vec<f32>>) -> Vec<Particle> {
     // Update using a fixed color matrix
@@ -355,53 +256,74 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
                     continue;
                 };
                 let distance: f32;
+                let mut p2_pos = p2.position;
                 if let BoundaryCondition::Periodic = params.boundary_condition {
-                    // Check component-wise if distances exceed the half-domain and adjust if necessary
-                    let mut pos_change = p2.position - p1.position;
-                    pos_change.x = pos_change.x.abs();
-                    pos_change.y = pos_change.y.abs();
-                    if pos_change.x > 0.5 * params.x_len() {
-                        pos_change.x = pos_change.x - params.x_len();
+                    // Find closest periodic image of the target point
+                    let distance_x = p2_pos.x - p1.position.x;
+                    if distance_x.abs() > 0.5 * params.x_len() {
+                        if distance_x > 0. {
+                            // Nearest image is to the left
+                            p2_pos.x -= params.x_len();
+                        } else {
+                            // Nearest image is to the right
+                            p2_pos.x += params.x_len();
+                        }
                     }
-                    if pos_change.y > 0.5 * params.y_len() {
-                        pos_change.y = pos_change.y - params.y_len();
+
+                    let distance_y = p2_pos.y - p1.position.y;
+                    if distance_y.abs() > 0.5 * params.y_len() {
+                        if distance_y > 0. {
+                            // Nearest image is below
+                            p2_pos.y -= params.y_len();
+                        } else {
+                            // Nearest image is above
+                            p2_pos.y += params.y_len();
+                        }
                     }
-                    distance = pos_change.length();
-                    // distance = p1.position.distance_to(p2.position);
-                } else {
-                    distance = p1.position.distance_to(p2.position);
                 };
+                distance = p1.position.distance_to(p2_pos);
                 if (distance > 0.) & (distance < params.max_radius) {
                     let f = compute_force(
                         distance / params.max_radius,
                         force_matrix[p1.i_color][p2.i_color],
                         0.3,
                     );
-                    total_force += ((p2.position - p1.position) / distance) * f;
+                    total_force += ((p2_pos - p1.position) / distance) * f;
                 }
             }
             let mut new_p = *p1;
             new_p.velocity *= friction;
+            total_force *= params.force_scale;
             new_p.velocity += total_force * params.time_step;
+            new_p
+        })
+        .collect();
 
+    // Update positions
+    new_particles
+        .par_iter()
+        .map(|p| {
+            let mut new_p = *p;
+            // Potential new position
+            new_p.position += new_p.velocity * params.time_step;
             // Boundaries
             match params.boundary_condition {
                 BoundaryCondition::Periodic => {
                     match new_p.position.x {
                         x if x > params.x_max() => {
-                            new_p.position.x -= params.x_max();
+                            new_p.position.x -= params.x_len();
                         },
                         x if x < params.x_min() => {
-                            new_p.position.x += params.x_max();
+                            new_p.position.x += params.x_len();
                         },
                         _ => {}
                     };
                     match new_p.position.y {
                         y if y > params.y_max() => {
-                            new_p.position.y -= params.y_max();
+                            new_p.position.y -= params.y_len();
                         },
                         y if y < params.y_min() => {
-                            new_p.position.y += params.y_max();
+                            new_p.position.y += params.y_len();
                         },
                         _ => {}
                     }
@@ -431,16 +353,6 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
                     };
                },
             }
-            new_p
-        })
-        .collect();
-
-    // Update positions
-    new_particles
-        .par_iter()
-        .map(|p| {
-            let mut new_p = *p;
-            new_p.position += new_p.velocity * params.time_step;
             new_p
         })
         .collect()
