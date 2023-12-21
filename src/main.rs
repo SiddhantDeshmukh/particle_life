@@ -16,7 +16,7 @@ fn init(rng: &mut ThreadRng,
     let max_radius: f32 = 0.1; // between 0 and 1
     let boundary_condition: BoundaryCondition = BoundaryCondition::Periodic;
     let grid_prgb_arr: [f32; 3] = generate_prgb_matrix(rng);
-    let force_scale: f32 = 2.;
+    let force_scale: f32 = 1.;
 
     return Params {
         window_width,
@@ -83,10 +83,6 @@ fn main() {
     const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
     const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
     // const SEED: u64 = 420;
-    // Init RNG and initial params
-    let mut rng: ThreadRng = rand::thread_rng();
-    let params = init(&mut rng, WINDOW_WIDTH, WINDOW_HEIGHT,
-        simulation_width, simulation_height);
 
     // Bounds for initial particle spawning
     let x_min: f32 = params.x_min();
@@ -116,7 +112,7 @@ fn main() {
 
     // Init raylib
     let (mut rl, thread) = raylib::init()
-        .size(params.window_width, params.window_height)
+        .size(WINDOW_WIDTH, WINDOW_HEIGHT)
         .title("Particle Life")
         .build();
 
