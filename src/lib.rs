@@ -252,6 +252,7 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
     let new_particles: Vec<Particle> = particles
         .par_iter()
         .map(|p1| {
+            // Calculate force felt by p1 by all other valid p's
             let mut total_force = Vector2::zero();
             for p2 in particles {
                 if p1 == p2 {
@@ -298,15 +299,8 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
             new_p.velocity *= friction;
             total_force *= params.force_scale / (X_SIZE * Y_SIZE);
             new_p.velocity += total_force * params.time_step;
-            new_p
-        })
-        .collect();
-
-    // Update positions
-    new_particles
-        .par_iter()
-        .map(|p| {
-            let mut new_p = *p;
+            
+            // Update position
             // Potential new position
             new_p.position += new_p.velocity * params.time_step;
             // Boundaries
@@ -356,7 +350,67 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
                     };
                },
             }
+
             new_p
         })
-        .collect()
+        .collect();
+    new_particles
+
+    // // Update positions
+    // new_particles
+    //     .par_iter()
+    //     .map(|p| {
+    //         let mut new_p = *p;
+    //         // Potential new position
+    //         new_p.position += new_p.velocity * params.time_step;
+    //         // Boundaries
+    //         match params.boundary_condition {
+    //             BoundaryCondition::Periodic => {
+    //                 match new_p.position.x {
+    //                     x if x > params.x_max() => {
+    //                         new_p.position.x -= params.x_len();
+    //                     },
+    //                     x if x < params.x_min() => {
+    //                         new_p.position.x += params.x_len();
+    //                     },
+    //                     _ => {}
+    //                 };
+    //                 match new_p.position.y {
+    //                     y if y > params.y_max() => {
+    //                         new_p.position.y -= params.y_len();
+    //                     },
+    //                     y if y < params.y_min() => {
+    //                         new_p.position.y += params.y_len();
+    //                     },
+    //                     _ => {}
+    //                 }
+    //             },
+    //             BoundaryCondition::Reflecting => {
+    //                 match new_p.position.x {
+    //                     x if x > params.x_max() =>  {
+    //                         new_p.position.x = 2. * params.x_max() - new_p.position.x;
+    //                         new_p.velocity.x = -new_p.velocity.x;
+    //                     },
+    //                     x if x < params.x_min() => {
+    //                         new_p.position.x = 2. * params.x_min() - new_p.position.x;
+    //                         new_p.velocity.x = -new_p.velocity.x;
+    //                     },
+    //                     _ => {}
+    //                 };
+    //                 match new_p.position.y {
+    //                     y if y > params.y_max() => {
+    //                         new_p.position.y = 2. * params.y_max() - new_p.position.y;
+    //                         new_p.velocity.y = -new_p.velocity.y;
+    //                     },
+    //                     y if y < params.y_min() => {
+    //                         new_p.position.y = 2. * params.y_min() - new_p.position.y;
+    //                         new_p.velocity.y = -new_p.velocity.y;
+    //                     },
+    //                     _ => {}
+    //                 };
+    //            },
+    //         }
+    //         new_p
+    //     })
+    //     .collect()
 }

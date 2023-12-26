@@ -11,12 +11,12 @@ fn init(rng: &mut ThreadRng,
         window_width: i32, window_height: i32) -> Params {
     // Initialises the required Params for initial simulation based on
     // simulation mode
-    let friction_half_life: f32 = 20.;
+    let friction_half_life: f32 = 10.;
     let time_step: f32 = 5.;
-    let max_radius: f32 = 30.; // between 0 and 100
+    let max_radius: f32 = 20.; // between 0 and 100
     let boundary_condition: BoundaryCondition = BoundaryCondition::Periodic;
     let grid_prgb_arr: [f32; 3] = generate_prgb_matrix(rng);
-    let force_scale: f32 = 1.;  // for user control
+    let force_scale: f32 = 3.;  // for user control
 
     return Params {
         window_width,
@@ -79,7 +79,7 @@ fn main() {
     // Simulation parameters
     let mut params = init(&mut rng, sim_window_width, sim_window_height);
 
-    const NUM_PARTICLES: usize = 1000;  // TODO: make variable
+    const NUM_PARTICLES: usize = 2000;  // TODO: make variable
     const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
     const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
     // const SEED: u64 = 420;
@@ -198,17 +198,11 @@ fn main() {
 
 /*
  TODO:
- - User controlled params
-    - friction, dt
-    - change forces
  - add/remove particles with brush
- - make RGB matrix a [f32; 9] 
- - Sim domain vs viewing domain
  - create submodules
  - Space partitioning
  - Vectorize input conditions and boundaries
- - Change to seedable RNG to save a good state matrix
+ - Change to seedable RNG to save a good state matrix, then reset with seed
  - Add collisions
  - Add spontaneous splitting
- - Continuous color force
 */
