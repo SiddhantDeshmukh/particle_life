@@ -4,6 +4,9 @@ use rand::{rngs::ThreadRng, Rng};
 use raylib::prelude::*;
 use rayon::prelude::*;
 
+// Defined for convenience, needs refactor
+pub const X_SIZE: f32 = 100.;
+pub const Y_SIZE: f32 = 100.;
 
 pub struct Button {
     pub x: f32,
@@ -30,17 +33,17 @@ pub struct Particle {
 }
 
 impl Particle {
-    // Scale positions to window size for drawing
+    // Scale positions to window size for drawing, divide by domain size
     fn scale_position(&self, value: f32, window_size: i32) -> i32 {
         (value * window_size as f32) as i32
     }
 
     pub fn win_pos_x(&self, window_width: i32) -> i32 {
-        self.scale_position(self.position.x, window_width)
+        self.scale_position(self.position.x, window_width) / X_SIZE as i32
     }
 
     pub fn win_pos_y(&self, window_height: i32) -> i32 {
-        self.scale_position(self.position.y, window_height)
+        self.scale_position(self.position.y, window_height) / Y_SIZE as i32
     }
 }
 
@@ -91,7 +94,7 @@ impl Params {
     }
 
     pub fn x_max(&self) -> f32 {
-        1.  // default
+        X_SIZE  // default        
     }
 
     pub fn y_min(&self) -> f32 {
@@ -99,7 +102,7 @@ impl Params {
     }
 
     pub fn y_max(&self) -> f32 {
-        1.  // default
+        Y_SIZE  // default
     }
 
     pub fn x_len(&self) -> f32 {
@@ -114,11 +117,11 @@ impl Params {
 // Coordinate transforms
 pub fn win_to_world(vec: Vector2, window_width: i32, window_height: i32) -> Vector2 {
     // Convert from window coordinates to world coords (between 0 and 1)
-    Vector2{x: vec.x / window_width as f32, y: vec.y / window_height as f32}
+    Vector2{x: vec.x * X_SIZE / window_width as f32, y: vec.y * Y_SIZE / window_height as f32}
 }
 
 pub fn world_to_win(vec: Vector2, window_width: i32, window_height: i32) -> Vector2 {
-    Vector2{x: vec.x * window_width as f32, y: vec.y * window_height as f32}
+    Vector2{x: vec.x / X_SIZE * window_width as f32, y: vec.y / Y_SIZE * window_height as f32}
 }
 
 // Numerics
@@ -293,7 +296,7 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
             }
             let mut new_p = *p1;
             new_p.velocity *= friction;
-            total_force *= params.force_scale;
+            total_force *= params.force_scale / (X_SIZE * Y_SIZE);
             new_p.velocity += total_force * params.time_step;
             new_p
         })

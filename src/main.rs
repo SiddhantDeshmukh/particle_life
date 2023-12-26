@@ -11,12 +11,12 @@ fn init(rng: &mut ThreadRng,
         window_width: i32, window_height: i32) -> Params {
     // Initialises the required Params for initial simulation based on
     // simulation mode
-    let friction_half_life: f32 = 0.04;
-    let time_step: f32 = 0.01;
-    let max_radius: f32 = 0.1; // between 0 and 1
+    let friction_half_life: f32 = 20.;
+    let time_step: f32 = 5.;
+    let max_radius: f32 = 30.; // between 0 and 100
     let boundary_condition: BoundaryCondition = BoundaryCondition::Periodic;
     let grid_prgb_arr: [f32; 3] = generate_prgb_matrix(rng);
-    let force_scale: f32 = 1.;
+    let force_scale: f32 = 1.;  // for user control
 
     return Params {
         window_width,
@@ -79,7 +79,7 @@ fn main() {
     // Simulation parameters
     let mut params = init(&mut rng, sim_window_width, sim_window_height);
 
-    const NUM_PARTICLES: usize = 2000;  // TODO: make variable
+    const NUM_PARTICLES: usize = 1000;  // TODO: make variable
     const MIN_MOUSE_PICKUP_RADIUS: f32 = 25.;
     const MAX_MOUSE_PICKUP_RADIUS: f32 = 500.;
     // const SEED: u64 = 420;
@@ -97,15 +97,13 @@ fn main() {
     // Init RNG, colors, forces and particles
     let colors: Vec<Color> = vec![
         Color::RED,
-        Color::BLUE,
-        Color::GREEN,
         Color::ORANGE,
         Color::YELLOW,
+        Color::LIME,
         Color::PURPLE,
-        Color::BROWN,
+        Color::BLUE,
         Color::PINK,
         Color::SKYBLUE,
-        Color::LIME
     ];
     let force_matrix = generate_force_matrix(colors.len(), &mut rng);
     let mut particles = generate_particles_cm(NUM_PARTICLES, &mut rng, &colors, x_min, x_max, y_min, y_max, vx_min, vx_max, vy_min, vy_max);
@@ -171,7 +169,7 @@ fn main() {
         // FPS
         d.draw_fps(text_x as i32, 18);
         // Timer
-        let text = format!("t = {:.2}", current_time);
+        let text = format!("t = {:}", current_time);
         d.draw_text(&text, text_x as i32, 40, 18, Color::WHITE);
         // Reset button
         let reset_button_clicked = d.gui_button(btn_rectangle(text_x as f32, 64.), create_cstr("Reset\0"));
@@ -181,14 +179,14 @@ fn main() {
         };
         // Params control
         let slider_x = text_x + 124.;
-        label(&mut d, text_x as f32, 108., format!("Time step = {:.3}\0", params.time_step).as_str());
-        params.time_step = slider(&mut d, slider_x, 108., params.time_step, 0.01, 0.1);
-        label(&mut d, text_x as f32, 136., format!("Fric. 1/2-life = {:.2}\0", params.friction_half_life).as_str());
-        params.friction_half_life = slider(&mut d, slider_x, 136., params.friction_half_life, 0.01, 0.99);
-        label(&mut d, text_x as f32, 164., format!("Max Radius = {:.2}\0", params.max_radius).as_str());
-        params.max_radius = slider(&mut d, slider_x, 164., params.max_radius, 0.01, 0.99);
-        label(&mut d, text_x as f32, 192., format!("Force scale = {:.2}\0", params.force_scale).as_str());
-        params.force_scale = slider(&mut d, slider_x, 192., params.force_scale, 0.1, 10.);
+        label(&mut d, text_x as f32, 108., format!("Time step = {:}\0", params.time_step).as_str());
+        params.time_step = slider(&mut d, slider_x, 108., params.time_step, 1., 10.);
+        label(&mut d, text_x as f32, 136., format!("Fric. 1/2-life = {:}\0", params.friction_half_life).as_str());
+        params.friction_half_life = slider(&mut d, slider_x, 136., params.friction_half_life, 1., 50.);
+        label(&mut d, text_x as f32, 164., format!("Max Radius = {:}\0", params.max_radius).as_str());
+        params.max_radius = slider(&mut d, slider_x, 164., params.max_radius, 1., 100.);
+        label(&mut d, text_x as f32, 192., format!("Force scale = {:}\0", params.force_scale).as_str());
+        params.force_scale = slider(&mut d, slider_x, 192., params.force_scale, 1., 10.);
         // Boundary Condition
         // Force matrix
 
