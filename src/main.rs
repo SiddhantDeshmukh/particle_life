@@ -59,10 +59,20 @@ fn label(d: &mut RaylibDrawHandle, x: f32, y: f32, s: &str) {
     d.gui_label(Rectangle {x, y, width: 64., height: 24.}, create_cstr(s))
 }
 
+fn checkbox(d: &mut RaylibDrawHandle, x: f32, y: f32, checked: bool) -> bool {
+    d.gui_check_box(Rectangle {x, y, width: 24., height: 24.}, None, checked)
+}
+
+fn textbox(d: &mut RaylibDrawHandle, x: f32, y: f32, s: &str) -> i32 {
+    let mut text = Vec::from(s);
+    d.gui_text_input_box(Rectangle {x, y, width: 64., height: 24.}, None, None, None, &mut text)
+}
+
 fn main() {
     // For rendering the window
     const WINDOW_WIDTH: i32 = 1600;
     const WINDOW_HEIGHT: i32 = 800;
+    let mut seed = 420;  // for seedable RNG
     // Padding for aesthetics and control panel
     let window_left_padding = WINDOW_WIDTH / 6;  // holds control panel
     let window_right_padding = WINDOW_WIDTH / 48;  // aesthetic
@@ -76,6 +86,7 @@ fn main() {
 
     // Init RNG
     let mut rng: ThreadRng = rand::thread_rng();
+    // let mut seed_rng = rand::SeedableRng::from_seed(seed);
     // Simulation parameters
     let mut params = init(&mut rng, sim_window_width, sim_window_height);
 
@@ -115,52 +126,16 @@ fn main() {
         .build();
 
     let mut mouse_pickup_radius: f32 = 100.;
+    let mut is_paused: bool = false;
+    let mut use_reflecting_bc: bool = false;  // by default use periodic
 
     // Simulation and drawing loop
     let mut current_time: f32 = 0.;
     while !rl.window_should_close() {
+        // Drawing
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
-        // Update particles
-        particles = update_particles_cm(&particles, &params, &force_matrix);
-        // Drawing
-        // Render pick-up circle around mouse
-        let render_mouse_position = d.get_mouse_position();
-        let mouse_position = Vector2 {x: render_mouse_position.x - window_left_padding as f32,
-                                               y: render_mouse_position.y - window_top_padding as f32};
-        // Pickup radius
-        d.draw_circle_lines(render_mouse_position.x as i32, render_mouse_position.y as i32,
-            mouse_pickup_radius, Color::GRAY);
-        let world_mouse_position = win_to_world(mouse_position, params.window_width, params.window_height);
-        let mouse_wheel = unsafe { GetMouseWheelMove() };
-        // Mouse events
-        // Mouse wheel to change pickup size
-        if mouse_wheel != 0. {
-            mouse_pickup_radius = clamp(mouse_pickup_radius + (mouse_wheel * 25.),
-            MIN_MOUSE_PICKUP_RADIUS, MAX_MOUSE_PICKUP_RADIUS)
-        }
-        // Click to grab
-        if d.is_mouse_button_down(MouseButton::MOUSE_LEFT_BUTTON) {
-            // Pick up particles near mouse
-            // TODO:
-            // Fix padding offsets
-            particles = particles
-                .par_iter_mut()
-                .map(|p: &mut Particle| {
-                    if mouse_position.distance_to(world_to_win(p.position, params.window_width, params.window_height)) <= mouse_pickup_radius {
-                        p.velocity -= (p.position - world_mouse_position).normalized() * 0.5;
-                    }
-                    *p
-                })
-                .collect();
-        }
-        // Particles
-        for p in &particles {
-            d.draw_circle(p.win_pos_x(params.window_width) + window_left_padding,
-                        p.win_pos_y(params.window_height) + window_top_padding,
-                        3.,
-                         p.color);
-        }
+        // Draw UI
         // Control panel
         // d.draw_rectangle(16, window_top_padding,
         //     window_left_padding - window_right_padding, WINDOW_HEIGHT - window_height_padding,
@@ -171,8 +146,14 @@ fn main() {
         // Timer
         let text = format!("t = {:}", current_time);
         d.draw_text(&text, text_x as i32, 40, 18, Color::WHITE);
+        // Pause button
+        label(&mut d, text_x, 68., "Paused: \0");
+        is_paused = checkbox(&mut d, text_x + 48., 68., is_paused);
+        // Seed textbox
+        label(&mut d, text_x + 104., 68., "Seed:\0");
+        // textbox(&mut d, text_x, 64., format!("{}", seed).as_str());
         // Reset button
-        let reset_button_clicked = d.gui_button(btn_rectangle(text_x as f32, 64.), create_cstr("Reset\0"));
+        let reset_button_clicked = d.gui_button(btn_rectangle(text_x + 156., 64.), create_cstr("Reset\0"));
         if reset_button_clicked {
             (params, particles) = reset(&mut rng, &colors, sim_window_width, sim_window_height);
             current_time = 0.;
@@ -188,9 +169,60 @@ fn main() {
         label(&mut d, text_x as f32, 192., format!("Force scale = {:}\0", params.force_scale).as_str());
         params.force_scale = slider(&mut d, slider_x, 192., params.force_scale, 1., 10.);
         // Boundary Condition
-        // Force matrix
+        label(&mut d, text_x as f32, 220., "Reflecting BC? (otherwise periodic)\0");
+        use_reflecting_bc = checkbox(&mut d, slider_x + 80., 220., use_reflecting_bc);
+        if use_reflecting_bc {
+            params.boundary_condition = BoundaryCondition::Reflecting;
+        } else {
+            params.boundary_condition = BoundaryCondition::Periodic;
+        }
 
-        current_time += params.time_step;
+        // Force matrix
+        // Scrollbox, one row for each color-color interaction 
+
+        // Render pick-up circle around mouse
+        let render_mouse_position = d.get_mouse_position();
+        let mouse_position = Vector2 {x: render_mouse_position.x - window_left_padding as f32,
+                                               y: render_mouse_position.y - window_top_padding as f32};
+        // Pickup radius
+        d.draw_circle_lines(render_mouse_position.x as i32, render_mouse_position.y as i32,
+            mouse_pickup_radius, Color::GRAY);
+        let world_mouse_position = win_to_world(mouse_position, params.window_width, params.window_height);
+        let mouse_wheel = unsafe { GetMouseWheelMove() };
+        // Mouse events
+        // Mouse wheel to change pickup size
+        if mouse_wheel != 0. {
+            mouse_pickup_radius = clamp(mouse_pickup_radius + (mouse_wheel * 25.),
+            MIN_MOUSE_PICKUP_RADIUS, MAX_MOUSE_PICKUP_RADIUS)
+        }
+        // Particles
+        // No physics updates when paused
+        if !is_paused {
+            // Click to grab
+            // TODO:
+            // Handle this logic in the update loop to prevent double looping
+            if d.is_mouse_button_down(MouseButton::MOUSE_LEFT_BUTTON) {
+                // Pick up particles near mouse
+                particles = particles
+                    .par_iter_mut()
+                    .map(|p: &mut Particle| {
+                        if mouse_position.distance_to(world_to_win(p.position, params.window_width, params.window_height)) <= mouse_pickup_radius {
+                            p.velocity -= (p.position - world_mouse_position).normalized() * 0.5;
+                        }
+                        *p
+                    })
+                    .collect();
+            }
+            particles = update_particles_cm(&particles, &params, &force_matrix);
+            current_time += params.time_step;
+        }
+
+        for p in &particles {
+            d.draw_circle(p.win_pos_x(params.window_width) + window_left_padding,
+                        p.win_pos_y(params.window_height) + window_top_padding,
+                        3.,
+                         p.color);
+        }
     }
 
 }
