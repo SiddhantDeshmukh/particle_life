@@ -127,6 +127,7 @@ fn main() {
 
     let mut mouse_pickup_radius: f32 = 100.;
     let mut is_paused: bool = false;
+    let mut is_reversed: bool = false;
     let mut use_reflecting_bc: bool = false;  // by default use periodic
 
     // Simulation and drawing loop
@@ -135,29 +136,29 @@ fn main() {
         // Drawing
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
+        let text_x = 8.;
         // Draw UI
         // Control panel
         // d.draw_rectangle(16, window_top_padding,
         //     window_left_padding - window_right_padding, WINDOW_HEIGHT - window_height_padding,
         //     Color::DARKGRAY);
-        let text_x = 8.;
         // FPS
         d.draw_fps(text_x as i32, 18);
         // Timer
         let text = format!("t = {:}", current_time);
         d.draw_text(&text, text_x as i32, 40, 18, Color::WHITE);
-        // Pause button
-        label(&mut d, text_x, 68., "Paused: \0");
-        is_paused = checkbox(&mut d, text_x + 48., 68., is_paused);
-        // Seed textbox
-        label(&mut d, text_x + 104., 68., "Seed:\0");
-        // textbox(&mut d, text_x, 64., format!("{}", seed).as_str());
-        // Reset button
-        let reset_button_clicked = d.gui_button(btn_rectangle(text_x + 156., 64.), create_cstr("Reset\0"));
+        // Reset button (resets with currently selected options)
+        let reset_button_clicked = d.gui_button(btn_rectangle(text_x + 132., 24.), create_cstr("Reset\0"));
         if reset_button_clicked {
             (params, particles) = reset(&mut rng, &colors, sim_window_width, sim_window_height);
             current_time = 0.;
         };
+        // Pause button
+        label(&mut d, text_x, 64., "Paused: \0");
+        is_paused = checkbox(&mut d, text_x + 48., 64., is_paused);
+        // Reverse button
+        label(&mut d, text_x + 92., 64., "Reversed:\0");
+        is_reversed = checkbox(&mut d, text_x + 154., 64., is_reversed);
         // Params control
         let slider_x = text_x + 124.;
         label(&mut d, text_x as f32, 108., format!("Time step = {:}\0", params.time_step).as_str());
@@ -213,8 +214,12 @@ fn main() {
                     })
                     .collect();
             }
-            particles = update_particles_cm(&particles, &params, &force_matrix);
-            current_time += params.time_step;
+            particles = update_particles_cm(&particles, &params, &force_matrix, is_reversed);
+            if is_reversed {
+                current_time -= params.time_step;
+            } else {
+                current_time += params.time_step;
+            }
         }
 
         for p in &particles {

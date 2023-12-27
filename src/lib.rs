@@ -245,9 +245,14 @@ pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
 
 // Particle updates
 pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
-                    force_matrix: &Vec<Vec<f32>>) -> Vec<Particle> {
+                    force_matrix: &Vec<Vec<f32>>, is_reversed: bool) -> Vec<Particle> {
     // Update using a fixed color matrix
     let friction: f32 = 0.5_f32.powf(params.time_step / params.friction_half_life);
+    // Check if forward or reverse integration in time
+    let mut time_step = params.time_step;
+    if is_reversed {
+        time_step = -time_step
+    }
     // Create new particles list and update velocities
     let new_particles: Vec<Particle> = particles
         .par_iter()
@@ -302,7 +307,7 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
             
             // Update position
             // Potential new position
-            new_p.position += new_p.velocity * params.time_step;
+            new_p.position += new_p.velocity * time_step;
             // Boundaries
             match params.boundary_condition {
                 BoundaryCondition::Periodic => {
@@ -355,62 +360,4 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
         })
         .collect();
     new_particles
-
-    // // Update positions
-    // new_particles
-    //     .par_iter()
-    //     .map(|p| {
-    //         let mut new_p = *p;
-    //         // Potential new position
-    //         new_p.position += new_p.velocity * params.time_step;
-    //         // Boundaries
-    //         match params.boundary_condition {
-    //             BoundaryCondition::Periodic => {
-    //                 match new_p.position.x {
-    //                     x if x > params.x_max() => {
-    //                         new_p.position.x -= params.x_len();
-    //                     },
-    //                     x if x < params.x_min() => {
-    //                         new_p.position.x += params.x_len();
-    //                     },
-    //                     _ => {}
-    //                 };
-    //                 match new_p.position.y {
-    //                     y if y > params.y_max() => {
-    //                         new_p.position.y -= params.y_len();
-    //                     },
-    //                     y if y < params.y_min() => {
-    //                         new_p.position.y += params.y_len();
-    //                     },
-    //                     _ => {}
-    //                 }
-    //             },
-    //             BoundaryCondition::Reflecting => {
-    //                 match new_p.position.x {
-    //                     x if x > params.x_max() =>  {
-    //                         new_p.position.x = 2. * params.x_max() - new_p.position.x;
-    //                         new_p.velocity.x = -new_p.velocity.x;
-    //                     },
-    //                     x if x < params.x_min() => {
-    //                         new_p.position.x = 2. * params.x_min() - new_p.position.x;
-    //                         new_p.velocity.x = -new_p.velocity.x;
-    //                     },
-    //                     _ => {}
-    //                 };
-    //                 match new_p.position.y {
-    //                     y if y > params.y_max() => {
-    //                         new_p.position.y = 2. * params.y_max() - new_p.position.y;
-    //                         new_p.velocity.y = -new_p.velocity.y;
-    //                     },
-    //                     y if y < params.y_min() => {
-    //                         new_p.position.y = 2. * params.y_min() - new_p.position.y;
-    //                         new_p.velocity.y = -new_p.velocity.y;
-    //                     },
-    //                     _ => {}
-    //                 };
-    //            },
-    //         }
-    //         new_p
-    //     })
-    //     .collect()
 }
