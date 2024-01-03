@@ -116,7 +116,17 @@ fn main() {
         Color::PINK,
         Color::SKYBLUE,
     ];
-    let force_matrix = generate_force_matrix(colors.len(), &mut rng);
+    let color_names: Vec<String> = vec![
+        String::from("Red"),
+        String::from("Orange"),
+        String::from("Yellow"),
+        String::from("Lime"),
+        String::from("Purple"),
+        String::from("Blue"),
+        String::from("Pink"),
+        String::from("Skyblue"),
+    ];
+    let mut force_matrix = generate_force_matrix(colors.len(), &mut rng);
     let mut particles = generate_particles_cm(NUM_PARTICLES, &mut rng, &colors, x_min, x_max, y_min, y_max, vx_min, vx_max, vy_min, vy_max);
 
     // Init raylib
@@ -161,16 +171,16 @@ fn main() {
         is_reversed = checkbox(&mut d, text_x + 154., 64., is_reversed);
         // Params control
         let slider_x = text_x + 124.;
-        label(&mut d, text_x as f32, 108., format!("Time step = {:}\0", params.time_step).as_str());
+        label(&mut d, text_x, 108., format!("Time step = {:}\0", params.time_step).as_str());
         params.time_step = slider(&mut d, slider_x, 108., params.time_step, 1., 10.);
-        label(&mut d, text_x as f32, 136., format!("Fric. 1/2-life = {:}\0", params.friction_half_life).as_str());
+        label(&mut d, text_x, 136., format!("Fric. 1/2-life = {:}\0", params.friction_half_life).as_str());
         params.friction_half_life = slider(&mut d, slider_x, 136., params.friction_half_life, 1., 50.);
-        label(&mut d, text_x as f32, 164., format!("Max Radius = {:}\0", params.max_radius).as_str());
+        label(&mut d, text_x, 164., format!("Max Radius = {:}\0", params.max_radius).as_str());
         params.max_radius = slider(&mut d, slider_x, 164., params.max_radius, 1., 100.);
-        label(&mut d, text_x as f32, 192., format!("Force scale = {:}\0", params.force_scale).as_str());
+        label(&mut d, text_x, 192., format!("Force scale = {:}\0", params.force_scale).as_str());
         params.force_scale = slider(&mut d, slider_x, 192., params.force_scale, 1., 10.);
         // Boundary Condition
-        label(&mut d, text_x as f32, 220., "Reflecting BC? (otherwise periodic)\0");
+        label(&mut d, text_x, 220., "Reflecting BC? (otherwise periodic)\0");
         use_reflecting_bc = checkbox(&mut d, slider_x + 80., 220., use_reflecting_bc);
         if use_reflecting_bc {
             params.boundary_condition = BoundaryCondition::Reflecting;
@@ -179,7 +189,18 @@ fn main() {
         }
 
         // Force matrix
-        // Scrollbox, one row for each color-color interaction 
+        // TODO: Scrollbox, one row for each color-color interaction
+        let base_y: f32 = 232.;
+        let mut y_increment: f32 = 0.;
+        for ci in 0..color_names.len() {
+            for cj in 0..color_names.len() {
+                let text = format!("{:?} - {:?}: {:.2}\0", color_names[ci], color_names[cj], force_matrix[ci][cj]);
+                // TODO: Set colors and add sliders
+                label(&mut d, text_x, base_y + y_increment, text.as_str());
+                force_matrix[ci][cj] = slider(&mut d, text_x + 64., base_y + y_increment, force_matrix[ci][cj], -1., 1.);
+                y_increment += 8.
+            }
+        }
 
         // Render pick-up circle around mouse
         let render_mouse_position = d.get_mouse_position();
