@@ -30,12 +30,13 @@ fn init(rng: &mut ThreadRng,
     }
 }
 
-pub fn reset(rng: &mut ThreadRng, colors: &Vec<Color>, window_width: i32, window_height: i32) -> (Params, Vec<Particle>) {
+pub fn reset(rng: &mut ThreadRng, colors: &Vec<Color>, window_width: i32, window_height: i32) -> (Params, Vec<Particle>, Vec<Vec<f32>>) {
     // Reinit, redraw
     let params = init(rng, window_width, window_height);
-    let particles = generate_particles_cm(2000, rng, &colors, 0., 1., 0., 1.,
+    let particles = generate_particles_cm(2000, rng, &colors, 0., X_SIZE, 0., Y_SIZE,
         0., 0., 0., 0.);
-    (params, particles)
+    let force_matrix = generate_force_matrix(colors.len(), rng);
+    (params, particles, force_matrix)
 }
 
 fn create_cstr(s: &str) -> Option<&CStr> {
@@ -66,6 +67,14 @@ fn checkbox(d: &mut RaylibDrawHandle, x: f32, y: f32, checked: bool) -> bool {
 fn textbox(d: &mut RaylibDrawHandle, x: f32, y: f32, s: &str) -> i32 {
     let mut text = Vec::from(s);
     d.gui_text_input_box(Rectangle {x, y, width: 64., height: 24.}, None, None, None, &mut text)
+}
+
+fn scrollbar(d: &mut RaylibDrawHandle, x: f32, y: f32, width: f32, height: f32, value: i32, min_value: i32, max_value: i32) -> i32 {
+    d.gui_scroll_bar(Rectangle {x, y, width, height}, value, min_value, max_value)
+}
+
+fn get_first_char(s: &String) -> char {
+    s.chars().next().unwrap_or('\0')
 }
 
 fn main() {
@@ -157,12 +166,6 @@ fn main() {
         // Timer
         let text = format!("t = {:}", current_time);
         d.draw_text(&text, text_x as i32, 40, 18, Color::WHITE);
-        // Reset button (resets with currently selected options)
-        let reset_button_clicked = d.gui_button(btn_rectangle(text_x + 132., 24.), create_cstr("Reset\0"));
-        if reset_button_clicked {
-            (params, particles) = reset(&mut rng, &colors, sim_window_width, sim_window_height);
-            current_time = 0.;
-        };
         // Pause button
         label(&mut d, text_x, 64., "Paused: \0");
         is_paused = checkbox(&mut d, text_x + 48., 64., is_paused);
@@ -190,15 +193,19 @@ fn main() {
 
         // Force matrix
         // TODO: Scrollbox, one row for each color-color interaction
-        let base_y: f32 = 232.;
-        let mut y_increment: f32 = 0.;
+        let base_y: f32 = 240.;
+        // Color reference
+        let cref_text = "R=Red, O=Orange, Y=Yellow, L=Lime, P=Purple,\nB=Blue, P=Pink, S=Skyblue\0";
+        label(&mut d, text_x, base_y, &cref_text);
+
+        let mut y_increment: f32 = 32.;
         for ci in 0..color_names.len() {
             for cj in 0..color_names.len() {
-                let text = format!("{:?} - {:?}: {:.2}\0", color_names[ci], color_names[cj], force_matrix[ci][cj]);
+                let text = format!("{:?} - {:?}: {:.2}\0", get_first_char(&color_names[ci]), get_first_char(&color_names[cj]), force_matrix[ci][cj]);
                 // TODO: Set colors and add sliders
                 label(&mut d, text_x, base_y + y_increment, text.as_str());
-                force_matrix[ci][cj] = slider(&mut d, text_x + 64., base_y + y_increment, force_matrix[ci][cj], -1., 1.);
-                y_increment += 8.
+                force_matrix[ci][cj] = slider(&mut d, text_x + 128., base_y + y_increment, force_matrix[ci][cj], -1., 1.);
+                y_increment += 12.
             }
         }
 
@@ -249,6 +256,12 @@ fn main() {
                         3.,
                          p.color);
         }
+        // Reset button (resets with currently selected options)
+        let reset_button_clicked = d.gui_button(btn_rectangle(text_x + 132., 24.), create_cstr("Reset\0"));
+        if reset_button_clicked {
+            (params, particles, force_matrix) = reset(&mut rng, &colors, sim_window_width, sim_window_height);
+            current_time = 0.;
+        };
     }
 
 }
