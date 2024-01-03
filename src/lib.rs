@@ -1,8 +1,12 @@
 use std::f32::consts::PI;
 
-use rand::{rngs::ThreadRng, Rng};
+use ::rand::{rngs::ThreadRng, Rng};
 use raylib::prelude::*;
+// use raylib::prelude::Color;
 use rayon::prelude::*;
+
+use macroquad::prelude::*;
+use macroquad::prelude::Color;
 
 // Defined for convenience, needs refactor
 pub const X_SIZE: f32 = 100.;
@@ -34,16 +38,16 @@ pub struct Particle {
 
 impl Particle {
     // Scale positions to window size for drawing, divide by domain size
-    fn scale_position(&self, value: f32, window_size: i32) -> i32 {
-        (value * window_size as f32) as i32
+    fn scale_position(&self, value: f32, window_size: f32) -> f32 {
+        value * window_size as f32
     }
 
-    pub fn win_pos_x(&self, window_width: i32) -> i32 {
-        self.scale_position(self.position.x, window_width) / X_SIZE as i32
+    pub fn win_pos_x(&self, window_width: f32) -> f32 {
+        self.scale_position(self.position.x, window_width) / X_SIZE
     }
 
-    pub fn win_pos_y(&self, window_height: i32) -> i32 {
-        self.scale_position(self.position.y, window_height) / Y_SIZE as i32
+    pub fn win_pos_y(&self, window_height: f32) -> f32 {
+        self.scale_position(self.position.y, window_height) / Y_SIZE
     }
 }
 
@@ -78,8 +82,8 @@ impl Particle {
 
 #[derive(Debug)]
 pub struct Params {
-    pub window_width: i32,
-    pub window_height: i32,
+    pub window_width: f32,
+    pub window_height: f32,
     pub time_step: f32,
     pub friction_half_life: f32,
     pub max_radius: f32,
@@ -115,12 +119,12 @@ impl Params {
 }
 
 // Coordinate transforms
-pub fn win_to_world(vec: Vector2, window_width: i32, window_height: i32) -> Vector2 {
+pub fn win_to_world(vec: Vector2, window_width: f32, window_height: f32) -> Vector2 {
     // Convert from window coordinates to world coords (between 0 and 1)
     Vector2{x: vec.x * X_SIZE / window_width as f32, y: vec.y * Y_SIZE / window_height as f32}
 }
 
-pub fn world_to_win(vec: Vector2, window_width: i32, window_height: i32) -> Vector2 {
+pub fn world_to_win(vec: Vector2, window_width: f32, window_height: f32) -> Vector2 {
     Vector2{x: vec.x / X_SIZE * window_width as f32, y: vec.y / Y_SIZE * window_height as f32}
 }
 
@@ -130,14 +134,14 @@ pub fn range_scale(v: f32, old_low: f32, old_hi: f32, new_low: f32, new_hi: f32)
     return new_low + v * (new_hi - new_low) / (old_hi - old_low);
 }
 
-pub fn clamp(val: f32, min: f32, max: f32) -> f32 {
-    // Clamp 'val' between 'min' and 'max'
-    match val {
-        val if val < min => min,
-        val if val > max => max,
-        _ => val
-    }
-}
+// pub fn clamp(val: f32, min: f32, max: f32) -> f32 {
+//     // Clamp 'val' between 'min' and 'max'
+//     match val {
+//         val if val < min => min,
+//         val if val > max => max,
+//         _ => val
+//     }
+// }
 
 pub fn rvec2_range(rng: &mut ThreadRng, x_min: f32, x_max: f32, y_min: f32, y_max: f32) -> Vector2 {
     rvec2(range_scale(rng.gen::<f32>(), 0., 1., x_min, x_max),
@@ -214,7 +218,7 @@ pub fn color_to_vec(c: Color) -> [f32; 3] {
 
 pub fn vec_to_color(v: [f32; 3]) -> Color {
     // Turn an RGB vec into a Color, alpha always max
-    Color{r: v[0] as u8, g: v[1] as u8, b: v[2] as u8, a: 255}
+    Color{r: v[0], g: v[1], b: v[2], a: 255.}
 }
 
 pub fn random_color(rng: &mut ThreadRng) -> Color {
