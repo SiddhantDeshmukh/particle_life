@@ -1,14 +1,14 @@
 use std::f32::consts::PI;
 
 use ::rand::{rngs::ThreadRng, Rng};
-use raylib::prelude::*;
-// use raylib::prelude::Color;
 use rayon::prelude::*;
+
+use egui_macroquad::egui;
 
 use macroquad::prelude::*;
 use macroquad::prelude::Color;
 
-// Defined for convenience, needs refactor
+// Defined for convenience, it's the simulation domain size
 pub const X_SIZE: f32 = 100.;
 pub const Y_SIZE: f32 = 100.;
 
@@ -21,7 +21,7 @@ pub struct Button {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BoundaryCondition {
     Periodic,
     Reflecting
@@ -32,8 +32,8 @@ pub struct Particle {
     pub color: Color,
     pub i_color: usize,  // index of Color in colors
     pub color_vec: [f32; 3],  // Color saved as RGB vec for continuous force
-    pub position: Vector2,
-    pub velocity: Vector2,
+    pub position: Vec2,
+    pub velocity: Vec2,
 }
 
 impl Particle {
@@ -119,13 +119,13 @@ impl Params {
 }
 
 // Coordinate transforms
-pub fn win_to_world(vec: Vector2, window_width: f32, window_height: f32) -> Vector2 {
+pub fn win_to_world(vec: Vec2, window_width: f32, window_height: f32) -> Vec2 {
     // Convert from window coordinates to world coords (between 0 and 1)
-    Vector2{x: vec.x * X_SIZE / window_width as f32, y: vec.y * Y_SIZE / window_height as f32}
+    Vec2::new(vec.x * X_SIZE / window_width as f32, vec.y * Y_SIZE / window_height as f32)
 }
 
-pub fn world_to_win(vec: Vector2, window_width: f32, window_height: f32) -> Vector2 {
-    Vector2{x: vec.x / X_SIZE * window_width as f32, y: vec.y / Y_SIZE * window_height as f32}
+pub fn world_to_win(vec: Vec2, window_width: f32, window_height: f32) -> Vec2 {
+    Vec2::new(vec.x / X_SIZE * window_width as f32, vec.y / Y_SIZE * window_height as f32)
 }
 
 // Numerics
@@ -143,8 +143,8 @@ pub fn range_scale(v: f32, old_low: f32, old_hi: f32, new_low: f32, new_hi: f32)
 //     }
 // }
 
-pub fn rvec2_range(rng: &mut ThreadRng, x_min: f32, x_max: f32, y_min: f32, y_max: f32) -> Vector2 {
-    rvec2(range_scale(rng.gen::<f32>(), 0., 1., x_min, x_max),
+pub fn rvec2_range(rng: &mut ThreadRng, x_min: f32, x_max: f32, y_min: f32, y_max: f32) -> Vec2 {
+    Vec2::new(range_scale(rng.gen::<f32>(), 0., 1., x_min, x_max),
         range_scale(rng.gen::<f32>(), 0., 1., y_min, y_max))
 }
 
@@ -152,6 +152,16 @@ pub fn random_val(rng: &mut ThreadRng) -> f32 {
     // Convenience method
     (rng.gen::<f32>() - 0.5) * 2.
 }
+
+
+// Macroquad to egui
+pub fn egui_color(color: Color) -> egui::Color32 {
+    egui::Color32::from_rgb(
+        (color.r * 255.) as u8,
+        (color.g * 255.) as u8,
+        (color.b * 255.) as u8)
+}
+
 
 // Force matrix stuff
 
@@ -255,14 +265,14 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
     // Check if forward or reverse integration in time
     let mut time_step = params.time_step;
     if is_reversed {
-        time_step = -time_step
+        time_step = -time_step;
     }
     // Create new particles list and update velocities
     let new_particles: Vec<Particle> = particles
         .par_iter()
         .map(|p1| {
             // Calculate force felt by p1 by all other valid p's
-            let mut total_force = Vector2::zero();
+            let mut total_force = Vec2::ZERO;
             for p2 in particles {
                 if p1 == p2 {
                     // No self-attraction
@@ -294,7 +304,7 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
                         }
                     }
                 };
-                distance = p1.position.distance_to(p2_pos);
+                distance = p1.position.distance(p2_pos);
                 if (distance > 0.) & (distance < params.max_radius) {
                     let f = compute_force(
                         distance / params.max_radius,
@@ -307,7 +317,7 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
             let mut new_p = *p1;
             new_p.velocity *= friction;
             total_force *= params.force_scale / (X_SIZE * Y_SIZE);
-            new_p.velocity += total_force * params.time_step;
+            new_p.velocity += total_force * time_step;
             
             // Update position
             // Potential new position

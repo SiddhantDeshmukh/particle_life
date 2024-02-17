@@ -18,3 +18,8 @@ pub fn rvec2_range(rng: &mut ThreadRng, x_min: f32, x_max: f32, y_min: f32, y_ma
     rvec2(range_scale(rng.gen::<f32>(), 0., 1., x_min, x_max),
         range_scale(rng.gen::<f32>(), 0., 1., y_min, y_max))
 }
+
+pub fn distance_to(v1: (f32, f32), v2: (f32, f32)) -> f32 {
+    // Calculates distance between two (f32, f32) arrs
+    sqrt(powi(v1.0 - v2.0, 2) + powi(v1.1 - v2.1, 2))
+}
