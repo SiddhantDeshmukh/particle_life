@@ -5,8 +5,8 @@ use rayon::prelude::*;
 
 use egui_macroquad::egui;
 
-use macroquad::prelude::*;
 use macroquad::prelude::Color;
+use macroquad::prelude::*;
 
 // Defined for convenience, it's the simulation domain size
 pub const X_SIZE: f32 = 100.;
@@ -20,18 +20,17 @@ pub struct Button {
     pub text: str,
 }
 
-
 #[derive(Debug, PartialEq)]
 pub enum BoundaryCondition {
     Periodic,
-    Reflecting
+    Reflecting,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub struct Particle {
     pub color: Color,
-    pub i_color: usize,  // index of Color in colors
-    pub color_vec: [f32; 3],  // Color saved as RGB vec for continuous force
+    pub i_color: usize,      // index of Color in colors
+    pub color_vec: [f32; 3], // Color saved as RGB vec for continuous force
     pub position: Vec2,
     pub velocity: Vec2,
 }
@@ -79,7 +78,6 @@ impl Particle {
 //     }
 // }
 
-
 #[derive(Debug)]
 pub struct Params {
     pub window_width: f32,
@@ -88,25 +86,25 @@ pub struct Params {
     pub friction_half_life: f32,
     pub max_radius: f32,
     pub boundary_condition: BoundaryCondition,
-    pub grid_prgb_arr: [f32; 3],  // 1-way force from grid cell to particle
+    pub grid_prgb_arr: [f32; 3], // 1-way force from grid cell to particle
     pub force_scale: f32,
 }
 
 impl Params {
     pub fn x_min(&self) -> f32 {
-        0.  // default
+        0. // default
     }
 
     pub fn x_max(&self) -> f32 {
-        X_SIZE  // default        
+        X_SIZE // default
     }
 
     pub fn y_min(&self) -> f32 {
-        0.  // default
+        0. // default
     }
 
     pub fn y_max(&self) -> f32 {
-        Y_SIZE  // default
+        Y_SIZE // default
     }
 
     pub fn x_len(&self) -> f32 {
@@ -121,11 +119,17 @@ impl Params {
 // Coordinate transforms
 pub fn win_to_world(vec: Vec2, window_width: f32, window_height: f32) -> Vec2 {
     // Convert from window coordinates to world coords (between 0 and 1)
-    Vec2::new(vec.x * X_SIZE / window_width as f32, vec.y * Y_SIZE / window_height as f32)
+    Vec2::new(
+        vec.x * X_SIZE / window_width as f32,
+        vec.y * Y_SIZE / window_height as f32,
+    )
 }
 
 pub fn world_to_win(vec: Vec2, window_width: f32, window_height: f32) -> Vec2 {
-    Vec2::new(vec.x / X_SIZE * window_width as f32, vec.y / Y_SIZE * window_height as f32)
+    Vec2::new(
+        vec.x / X_SIZE * window_width as f32,
+        vec.y / Y_SIZE * window_height as f32,
+    )
 }
 
 // Numerics
@@ -144,8 +148,10 @@ pub fn range_scale(v: f32, old_low: f32, old_hi: f32, new_low: f32, new_hi: f32)
 // }
 
 pub fn rvec2_range(rng: &mut ThreadRng, x_min: f32, x_max: f32, y_min: f32, y_max: f32) -> Vec2 {
-    Vec2::new(range_scale(rng.gen::<f32>(), 0., 1., x_min, x_max),
-        range_scale(rng.gen::<f32>(), 0., 1., y_min, y_max))
+    Vec2::new(
+        range_scale(rng.gen::<f32>(), 0., 1., x_min, x_max),
+        range_scale(rng.gen::<f32>(), 0., 1., y_min, y_max),
+    )
 }
 
 pub fn random_val(rng: &mut ThreadRng) -> f32 {
@@ -153,15 +159,14 @@ pub fn random_val(rng: &mut ThreadRng) -> f32 {
     (rng.gen::<f32>() - 0.5) * 2.
 }
 
-
 // Macroquad to egui
 pub fn egui_color(color: Color) -> egui::Color32 {
     egui::Color32::from_rgb(
         (color.r * 255.) as u8,
         (color.g * 255.) as u8,
-        (color.b * 255.) as u8)
+        (color.b * 255.) as u8,
+    )
 }
-
 
 // Force matrix stuff
 
@@ -180,7 +185,7 @@ pub fn generate_force_matrix(len: usize, rng: &mut ThreadRng) -> Vec<Vec<f32>> {
         }
     }
 
-    return force_matrix
+    return force_matrix;
 }
 
 pub fn compute_force(r: f32, a: f32, beta: f32) -> f32 {
@@ -228,7 +233,12 @@ pub fn color_to_vec(c: Color) -> [f32; 3] {
 
 pub fn vec_to_color(v: [f32; 3]) -> Color {
     // Turn an RGB vec into a Color, alpha always max
-    Color{r: v[0], g: v[1], b: v[2], a: 255.}
+    Color {
+        r: v[0],
+        g: v[1],
+        b: v[2],
+        a: 255.,
+    }
 }
 
 pub fn random_color(rng: &mut ThreadRng) -> Color {
@@ -236,18 +246,27 @@ pub fn random_color(rng: &mut ThreadRng) -> Color {
 }
 
 // Particle generation
-pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
-                     colors: &Vec<Color>, x_min: f32, x_max: f32,
-                     y_min: f32, y_max: f32, vx_min: f32, vx_max: f32,
-                     vy_min: f32, vy_max: f32) -> Vec<Particle> {
+pub fn generate_particles_cm(
+    num: usize,
+    rng: &mut ThreadRng,
+    colors: &Vec<Color>,
+    x_min: f32,
+    x_max: f32,
+    y_min: f32,
+    y_max: f32,
+    vx_min: f32,
+    vx_max: f32,
+    vy_min: f32,
+    vy_max: f32,
+) -> Vec<Particle> {
     // Generate 'num' random particles from the given parameters
     let particles: Vec<Particle> = (0..num)
-        .map(|_|  {
+        .map(|_| {
             let i_color: usize = rng.gen_range(0..colors.len());
             let p = Particle {
                 color: colors[i_color],
                 i_color,
-                color_vec: color_to_vec(colors[i_color]),  // used for grid forces
+                color_vec: color_to_vec(colors[i_color]), // used for grid forces
                 position: rvec2_range(rng, x_min, x_max, y_min, y_max),
                 velocity: rvec2_range(rng, vx_min, vx_max, vy_min, vy_max),
             };
@@ -258,8 +277,12 @@ pub fn generate_particles_cm(num: usize, rng: &mut ThreadRng,
 }
 
 // Particle updates
-pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
-                    force_matrix: &Vec<Vec<f32>>, is_reversed: bool) -> Vec<Particle> {
+pub fn update_particles_cm(
+    particles: &Vec<Particle>,
+    params: &Params,
+    force_matrix: &Vec<Vec<f32>>,
+    is_reversed: bool,
+) -> Vec<Particle> {
     // Update using a fixed color matrix
     let friction: f32 = 0.5_f32.powf(params.time_step / params.friction_half_life);
     // Check if forward or reverse integration in time
@@ -318,7 +341,7 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
             new_p.velocity *= friction;
             total_force *= params.force_scale / (X_SIZE * Y_SIZE);
             new_p.velocity += total_force * time_step;
-            
+
             // Update position
             // Potential new position
             new_p.position += new_p.velocity * time_step;
@@ -328,46 +351,46 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
                     match new_p.position.x {
                         x if x > params.x_max() => {
                             new_p.position.x -= params.x_len();
-                        },
+                        }
                         x if x < params.x_min() => {
                             new_p.position.x += params.x_len();
-                        },
+                        }
                         _ => {}
                     };
                     match new_p.position.y {
                         y if y > params.y_max() => {
                             new_p.position.y -= params.y_len();
-                        },
+                        }
                         y if y < params.y_min() => {
                             new_p.position.y += params.y_len();
-                        },
+                        }
                         _ => {}
                     }
-                },
+                }
                 BoundaryCondition::Reflecting => {
                     match new_p.position.x {
-                        x if x > params.x_max() =>  {
+                        x if x > params.x_max() => {
                             new_p.position.x = 2. * params.x_max() - new_p.position.x;
                             new_p.velocity.x = -new_p.velocity.x;
-                        },
+                        }
                         x if x < params.x_min() => {
                             new_p.position.x = 2. * params.x_min() - new_p.position.x;
                             new_p.velocity.x = -new_p.velocity.x;
-                        },
+                        }
                         _ => {}
                     };
                     match new_p.position.y {
                         y if y > params.y_max() => {
                             new_p.position.y = 2. * params.y_max() - new_p.position.y;
                             new_p.velocity.y = -new_p.velocity.y;
-                        },
+                        }
                         y if y < params.y_min() => {
                             new_p.position.y = 2. * params.y_min() - new_p.position.y;
                             new_p.velocity.y = -new_p.velocity.y;
-                        },
+                        }
                         _ => {}
                     };
-               },
+                }
             }
 
             new_p
@@ -375,3 +398,4 @@ pub fn update_particles_cm(particles: &Vec<Particle>, params: &Params,
         .collect();
     new_particles
 }
+
